@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<index>
+    <rule>
+        <id>UNIQUE</id>
+    </rule>
+    <address>
+        <start_end_set>UNIQUE</start_end_set>
+    </address>
+    <set>
+        <name>UNIQUE</name>
+    </set>
+    <rule>
+        <name>UNIQUE</name>
+    </rule>
+    <service>
+        <name_id>UNIQUE</name_id>
+    </service>
+</index>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<class>
+    <address>
+        <start>STRING</start>
+        <end>STRING</end>
+        <set>STRING</set>
+    </address>
+    <set>
+        <name>STRING</name>
+    </set>
+    <service>
+        <id>INTEGER</id>
+        <name>STRING</name>
+        <group>STRING</group>
+        <protocol>STRING</protocol>
+        <src_start>INTEGER</src_start>
+        <src_end>INTEGER</src_end>
+        <dst_start>INTEGER</dst_start>
+        <dst_end>INTEGER</dst_end>
+    </service>
+    <rule>
+        <id>INTEGER</id>
+        <name>STRING</name>
+        <action>STRING</action>
+        <src_zone>STRING</src_zone>
+        <dst_zone>STRING</dst_zone>
+    </rule>
+</class>
