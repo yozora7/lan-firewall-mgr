@@ -1,4 +1,4 @@
-package pers.yozora7.lanfirewallmgr.parser.data;
+package pers.yozora7.lanfirewallmgr.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -13,7 +13,7 @@ public class Service {
     // 服务名称
     private String name;
     // 序号
-    private long id;
+    private int id;
     // 协议 (TCP/UDP)
     private String protocol;
     // group
