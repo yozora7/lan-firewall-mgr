@@ -13,7 +13,7 @@ public class Service {
     // 服务名称
     private String name;
     // 序号
-    private int id;
+    private long id;
     // 协议 (TCP/UDP)
     private String protocol;
     // group

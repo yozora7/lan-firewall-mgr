@@ -11,7 +11,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Address {
-    private int id;
+    private long id;
     // 起始地址
     private String start;
     // 结束地址

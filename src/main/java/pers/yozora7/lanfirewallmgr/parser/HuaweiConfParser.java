@@ -5,7 +5,7 @@ import org.xml.sax.XMLReader;
 import pers.yozora7.lanfirewallmgr.parser.data.Address;
 import pers.yozora7.lanfirewallmgr.parser.data.Rule;
 import pers.yozora7.lanfirewallmgr.parser.data.Service;
-import pers.yozora7.lanfirewallmgr.service.ConfDaoService;
+import pers.yozora7.lanfirewallmgr.service.ConfDao;
 import pers.yozora7.lanfirewallmgr.xml.SAXParserHandler;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -29,11 +29,12 @@ public class HuaweiConfParser extends FirewallConfParser {
         xmlReader.parse("src/main/resources/HuaweiRegex.xml");
         return handler.getList();
     }
-    // 地址集 (address-set)
+    // address-set
     @Override
-    public void parseAddressSet(String config, ConfDaoService dao) throws IOException, ParserConfigurationException, SAXException {
+    public void parseAddressSet(String config, ConfDao dao) throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         String set = "";
+        long count = dao.countIds("address");
 
         // 正则
         Map<String, String> regex = getRegex("address").get(0);
@@ -78,29 +79,52 @@ public class HuaweiConfParser extends FirewallConfParser {
                 if (host.matcher(line).find()) {
                     data.setStart(temp[2] + "/32");
                     data.setEnd("null");
+                    // 添加地址
+                    data.setId(count);
+                    if (dao.address(data) == count) {
+                        count++;
+                    }
                 }
                 // IP范围 (address n range start end)
                 else if (range.matcher(line).find()) {
                     data.setStart(temp[3] + "/32");
                     data.setEnd(temp[4] + "/32");
+                    // 添加地址
+                    data.setId(count);
+                    if (dao.address(data) == count) {
+                        count++;
+                    }
                 }
                 // 带2位数掩码 (CIDR) (address n x.x.x.x mask x)
                 else if (withMask.matcher(line).find()) {
                     data.setStart(temp[2] + "/" + temp[4]);
                     data.setEnd("null");
+                    // 添加地址
+                    data.setId(count);
+                    if (dao.address(data) == count) {
+                        count++;
+                    }
                 }
                 // 带长掩码 (address n x.x.x.x mask x.x.x.x)
                 else if (withLongMask.matcher(line).find()) {
                     data.setStart(temp[2] + "/" + longMask2Short(temp[4]));
                     data.setEnd("null");
+                    // 添加地址
+                    data.setId(count);
+                    if (dao.address(data) == count) {
+                        count++;
+                    }
                 }
                 // 带反掩码 (address n x.x.x.x x.x.x.x)
                 else if (withWildcardMask.matcher(line).find()) {
                     data.setStart(temp[2] + "/" + wildcard2Mask(temp[3]));
                     data.setEnd("null");
+                    // 添加地址
+                    data.setId(count);
+                    if (dao.address(data) == count) {
+                        count++;
+                    }
                 }
-                // 添加地址
-                dao.address(data);
             }
             // 地址集记录结束
             if (line.contains("#")) {
@@ -110,10 +134,12 @@ public class HuaweiConfParser extends FirewallConfParser {
         reader.close();
     }
 
+    // service-set
     @Override
-    public void parseServiceSet(String config, ConfDaoService dao) throws IOException, ParserConfigurationException, SAXException {
+    public void parseServiceSet(String config, ConfDao dao) throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         String name = null;
+        long count = dao.countIds("service");
 
         Map<String, String> regex = getRegex("service-set").get(0);
         // 起始字段
@@ -144,16 +170,33 @@ public class HuaweiConfParser extends FirewallConfParser {
                 data.setName(name);
                 data.setProtocol(protocol);
                 // 起始/结束端口
-                String[] temp = line.trim()
+                String[] srcPorts = line.trim()
                         .split("source-port|destination-port")[1]
                         .replaceAll("\\s+", "")
                         .split("to");
-                data.setSrcStartPort(Integer.valueOf(temp[0]));
-                data.setSrcStartPort(Integer.valueOf(temp[1]));
-                data.setDstStartPort(Integer.valueOf(temp[0]));
-                data.setDstEndPort(Integer.valueOf(temp[1]));
+                String[] dstPorts = line.trim()
+                        .split("source-port|destination-port")[2]
+                        .replaceAll("\\s+", "")
+                        .split("to");
+                data.setSrcStartPort(Integer.valueOf(srcPorts[0]));
+                data.setDstStartPort(Integer.valueOf(dstPorts[0]));
+                if (srcPorts.length > 1) {
+                    data.setSrcEndPort(Integer.valueOf(srcPorts[1]));
+                }
+                else {
+                    data.setSrcEndPort(Integer.valueOf(srcPorts[0]));
+                }
+                if (dstPorts.length > 1) {
+                    data.setDstEndPort(Integer.valueOf(dstPorts[1]));
+                }
+                else {
+                    data.setDstEndPort(Integer.valueOf(dstPorts[0]));
+                }
                 data.setGroup("null");
-                dao.service(data);
+                data.setId(count);
+                if (dao.service(data) == count) {
+                    count++;
+                }
             }
             // 记录结束
             if (line.contains("#")) {
@@ -164,11 +207,11 @@ public class HuaweiConfParser extends FirewallConfParser {
     }
 
     @Override
-    public void parseServiceGroup(String config, ConfDaoService dao) throws IOException, ParserConfigurationException, SAXException {
+    public void parseServiceGroup(String config, ConfDao dao) throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         String group = null;
 
-        Map<String, String> regex = getRegex("service-set").get(0);
+        Map<String, String> regex = getRegex("service-group").get(0);
         // 起始字段
         Pattern header = Pattern.compile(regex.get("header"));
         // service-set
@@ -204,15 +247,18 @@ public class HuaweiConfParser extends FirewallConfParser {
     }
 
     @Override
-    public void parseRule(String config, ConfDaoService dao) throws IOException, ParserConfigurationException, SAXException {
+    public void parseRule(String config, ConfDao dao) throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         Rule data = null;
-        Address address = null;
+        Address address;
+        long count = dao.countIds("rule");
+        long countAddress = dao.countIds("address");
+        long countService = dao.countIds("service");
         Set<String> srcSets = new HashSet<>();
         Set<String> dstSets = new HashSet<>();
-        Set<Integer> srcAddressIds = new HashSet<>();
-        Set<Integer> dstAddressIds = new HashSet<>();
-        Set<Integer> serviceIds = new HashSet<>();
+        Set<Long> srcAddressIds = new HashSet<>();
+        Set<Long> dstAddressIds = new HashSet<>();
+        Set<Long> serviceIds = new HashSet<>();
         Set<String> serviceGroups = new HashSet<>();
 
         Map<String, String> regex = getRegex("rule").get(0);
@@ -275,7 +321,12 @@ public class HuaweiConfParser extends FirewallConfParser {
                     address.setStart(line.trim().split("\\s+")[1] + "/" + longMask2Short(line.trim().split("\\s+")[3]));
                     address.setEnd("null");
                     address.setSet("null");
-                    srcAddressIds.add(dao.address(address));
+                    address.setId(countAddress);
+                    long id = dao.address(address);
+                    srcAddressIds.add(id);
+                    if (id == countAddress) {
+                        countAddress++;
+                    }
                 }
                 // source-address range
                 else if (srcRange.matcher(line).find()) {
@@ -283,7 +334,12 @@ public class HuaweiConfParser extends FirewallConfParser {
                     address.setStart(line.trim().split("\\s+")[2] + "/32");
                     address.setEnd(line.trim().split("\\s+")[3] + "/32");
                     address.setSet("null");
-                    srcAddressIds.add(dao.address(address));
+                    address.setId(countAddress);
+                    long id = dao.address(address);
+                    srcAddressIds.add(id);
+                    if (id == countAddress) {
+                        countAddress++;
+                    }
                 }
                 // destination-zone
                 else if (dstZone.matcher(line).find()) {
@@ -299,7 +355,12 @@ public class HuaweiConfParser extends FirewallConfParser {
                     address.setStart(line.trim().split("\\s+")[1] + "/" + longMask2Short(line.trim().split("\\s+")[3]));
                     address.setEnd("null");
                     address.setSet("null");
-                    dstAddressIds.add(dao.address(address));
+                    address.setId(countAddress);
+                    long id = dao.address(address);
+                    dstAddressIds.add(id);
+                    if (id == countAddress) {
+                        countAddress++;
+                    }
                 }
                 // destination-address range
                 else if (dstRange.matcher(line).find()) {
@@ -307,7 +368,12 @@ public class HuaweiConfParser extends FirewallConfParser {
                     address.setStart(line.trim().split("\\s+")[2] + "/32");
                     address.setEnd(line.trim().split("\\s+")[3] + "/32");
                     address.setSet("null");
-                    dstAddressIds.add(dao.address(address));
+                    address.setId(countAddress);
+                    long id = dao.address(address);
+                    dstAddressIds.add(id);
+                    if (id == countAddress) {
+                        countAddress++;
+                    }
                 }
                 // service
                 else if (serviceName.matcher(line).find()) {
@@ -318,32 +384,66 @@ public class HuaweiConfParser extends FirewallConfParser {
                     }
                     // service-set
                     else {
-                        Service temp = new Service();
-                        temp.setName(name);
-                        serviceIds.add(dao.service(temp));
+                        Service service = new Service();
+                        service.setName(name);
+                        service.setProtocol("null");
+                        service.setSrcStartPort(0);
+                        service.setSrcEndPort(0);
+                        service.setDstStartPort(0);
+                        service.setDstEndPort(0);
+                        service.setGroup("null");
+                        service.setId(countService);
+                        long id = dao.service(service);
+                        serviceIds.add(id);
+                        if (id == countService) {
+                            countService++;
+                        }
                     }
                 }
                 // application (as service)
                 else if (app.matcher(line).find()) {
-                    Service temp = new Service();
-                    temp.setName(line.trim().split("\\s+")[1].toLowerCase());
-                    serviceIds.add(dao.service(temp));
+                    Service service = new Service();
+                    service.setName(line.trim().split("\\s+")[1].toLowerCase());
+                    service.setProtocol("null");
+                    service.setSrcStartPort(0);
+                    service.setSrcEndPort(0);
+                    service.setDstStartPort(0);
+                    service.setDstEndPort(0);
+                    service.setGroup("null");
+                    service.setId(countService);
+                    long id = dao.service(service);
+                    serviceIds.add(id);
+                    if (id == countService) {
+                        countService++;
+                    }
                 }
                 // service protocol ... destination-port ...
                 else if (serviceContent.matcher(line).find()) {
-                    Service temp = new Service();
+                    Service service = new Service();
                     String protocol = line.trim().split("\\s+")[2].toLowerCase();
-                    temp.setProtocol(protocol);
+                    service.setProtocol(protocol);
                     // 目标端口
-                    String[] dst = line.trim()
+                    String[] dstPorts = line.trim()
                             .split("destination-port")[1]
                             .replaceAll("\\s+", "")
                             .split("to");
-                    temp.setDstStartPort(Integer.valueOf(dst[0]));
-                    temp.setDstEndPort(Integer.valueOf(dst[1]));
-                    // 服务命名: 协议_目标端口
-                    temp.setName(protocol + "_" + dst[0] + "_" + dst[1]);
-                    serviceIds.add(dao.service(temp));
+                    service.setDstStartPort(Integer.valueOf(dstPorts[0]));
+                    if (dstPorts.length > 1) {
+                        service.setDstEndPort(Integer.valueOf(dstPorts[1]));
+                        // 服务命名: 协议_目标端口
+                        service.setName(protocol + "_" + dstPorts[0] + "_" + dstPorts[1]);
+                    }
+                    else {
+                        service.setDstEndPort(Integer.valueOf(dstPorts[0]));
+                        service.setName(protocol + "_" + dstPorts[0]);
+                    }
+                    service.setId(countService);
+                    service.setGroup("null");
+                    long id = dao.service(service);
+                    serviceIds.add(id);
+                    if (id == countService) {
+                        countService++;
+                    }
                 }
                 // action
                 if (action.matcher(line).find() && flag) {
@@ -354,7 +454,7 @@ public class HuaweiConfParser extends FirewallConfParser {
                     data.setDstAddressIds(dstAddressIds);
                     data.setServiceIds(serviceIds);
                     data.setServiceGroups(serviceGroups);
-                    data.setAction(line.trim().split("\\s+")[1].toLowerCase());
+                    data.setAction(line.replace("action", "").trim().toLowerCase());
                     if (data.getSrcZone() == null) {
                         data.setSrcZone("null");
                     }
@@ -362,7 +462,10 @@ public class HuaweiConfParser extends FirewallConfParser {
                         data.setDstZone("null");
                     }
                     // 记录规则
-                    dao.rule(data);
+                    data.setId(count);
+                    if (dao.rule(data) == count) {
+                        count++;
+                    }
                 }
             }
         }

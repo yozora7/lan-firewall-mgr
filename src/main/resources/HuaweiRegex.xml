@@ -31,6 +31,6 @@
         <service-name>service \S+$</service-name>
         <service-content>service protocol \S+ destination-port \d+</service-content>
         <app>application app \S+</app>
-        <action>action \S+$</action>
+        <action>action \S+</action>
     </rule>
 </regex>

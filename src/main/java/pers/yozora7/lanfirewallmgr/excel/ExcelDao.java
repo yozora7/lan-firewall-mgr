@@ -1,7 +1,7 @@
 package pers.yozora7.lanfirewallmgr.excel;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
-import pers.yozora7.lanfirewallmgr.service.ConfDaoService;
+import pers.yozora7.lanfirewallmgr.service.ConfDao;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -34,7 +34,7 @@ public class ExcelDao {
      * @throws InvocationTargetException
      * @throws InstantiationException
      */
-    public static <T, D> void importExcel(String fileName, Class<T> tClass, String sheetName, ConfDaoService service) throws IOException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+    public static <T, D> void importExcel(String fileName, Class<T> tClass, String sheetName, ConfDao service) throws IOException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
         log.info("DAO Service: {}", service.getClass().getCanonicalName());
         log.info("Data type: {}", tClass.getCanonicalName());
         // 返回数据
