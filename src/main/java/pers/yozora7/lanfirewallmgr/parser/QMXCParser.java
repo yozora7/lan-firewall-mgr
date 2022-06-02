@@ -18,6 +18,7 @@ import java.util.regex.Pattern;
 public class QMXCParser {
     private String config;
     private Dao dao;
+    private static String split = "\\s+(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)";
     public void parse(String config, Dao dao) throws IOException, ParserConfigurationException, SAXException {
         this.config = config;
         this.dao = dao;
@@ -25,8 +26,6 @@ public class QMXCParser {
         parseServiceSet();
         parseRule();
     }
-
-    // 从XML读取正则表达式
     private List<Map<String, String>> getRegex(String nodeName) throws ParserConfigurationException, SAXException, IOException {
         SAXParserFactory factory = SAXParserFactory.newInstance();
         SAXParser parse = factory.newSAXParser();
@@ -36,8 +35,6 @@ public class QMXCParser {
         xmlReader.parse("src/main/resources/QMXCRegex.xml");
         return handler.getList();
     }
-
-    // address-set
     private void parseNetSet() throws IOException, ParserConfigurationException, SAXException {
         int count = dao.count("net");
         int setId = 0;
@@ -46,22 +43,22 @@ public class QMXCParser {
         Pattern net = Pattern.compile(regex.get("net"));
         Pattern host = Pattern.compile(regex.get("host"));
         Pattern range = Pattern.compile(regex.get("range"));
-
         BufferedReader reader = new BufferedReader(new FileReader(config));
-
         while (true) {
             String line = reader.readLine();
             if (line == null) {
                 break;
             }
             else {
-                line = line.trim();
+                line = line.trim().replaceAll("\\\\","/");
             }
+            // ^address (".*?"|\S+)$
             if (header.matcher(line).find()) {
-                setId = dao.addSet(line.trim().split("\\s+")[1]);
+                setId = dao.addSet(line.split(split)[1].replace("\"",""));
+                continue;
             }
-            String[] temp = line.trim().split("\\s+");
-            // net-address
+            String[] temp = line.split("\\s+");
+            // net-address \d+.\d+.\d+.\d+/\d+$
             if (net.matcher(line).find()) {
                 Net data = new Net();
                 data.setSetId(setId);
@@ -72,7 +69,7 @@ public class QMXCParser {
                     count++;
                 }
             }
-            // host-address
+            // host-address \d+.\d+.\d+.\d+$
             else if (host.matcher(line).find()) {
                 Net data = new Net();
                 data.setSetId(setId);
@@ -83,7 +80,7 @@ public class QMXCParser {
                     count++;
                 }
             }
-            // range-address
+            // range-address \d+.\d+.\d+.\d+ \d+.\d+.\d+.\d+$
             else if (range.matcher(line).find()) {
                 Net data = new Net();
                 data.setSetId(setId);
@@ -97,44 +94,35 @@ public class QMXCParser {
         }
         reader.close();
     }
-
-    // service-set
     private void parseServiceSet() throws IOException, ParserConfigurationException, SAXException {
         String name = null;
         int count = dao.count("service");
-
         Map<String, String> regex = getRegex("service").get(0);
         Pattern header = Pattern.compile(regex.get("header"));
         Pattern both = Pattern.compile(regex.get("both"));
-        Pattern dest = Pattern.compile(regex.get("dst"));
-        Pattern source = Pattern.compile(regex.get("src"));
-
+        Pattern dst = Pattern.compile(regex.get("dst"));
+        Pattern src = Pattern.compile(regex.get("src"));
         BufferedReader reader = new BufferedReader(new FileReader(config));
-
         while (true) {
             String line = reader.readLine();
             if (line == null) {
                 break;
             } else {
-                line = line.trim();
+                line = line.trim().replaceAll("\\\\","/");
             }
+            // ^service (".*?"|\S+)$
             if (header.matcher(line).find()) {
-                name = line.trim().split("\\s+")[1];
+                name = line.split(split)[1].replace("\"","");
                 continue;
             }
+            // \S+ dest \d+(\s+\d+)? source \d+(\s+\d+)?$
             if (both.matcher(line).find()) {
                 Service data = new Service();
                 data.setName(name);
-                String protocol = line.trim().split("\\s+")[0];
+                String protocol = line.split("\\s+")[0];
                 data.setProtocol(protocol);
-                String[] srcPorts = line.trim()
-                        .split("dest|source")[2]
-                        .trim()
-                        .split("\\s+");
-                String[] dstPorts = line.trim()
-                        .split("dest|source")[1]
-                        .trim()
-                        .split("\\s+");
+                String[] srcPorts = line.split("dest|source")[2].trim().split("\\s+");
+                String[] dstPorts = line.split("dest|source")[1].trim().split("\\s+");
                 data.setSrcStartPort(Integer.valueOf(srcPorts[0]));
                 data.setDstStartPort(Integer.valueOf(dstPorts[0]));
                 if (srcPorts.length > 1) {
@@ -151,16 +139,18 @@ public class QMXCParser {
                 if (dao.addService(data) == count) {
                     count++;
                 }
-            } else if (dest.matcher(line).find()) {
+            }
+            // \S+ dest \d+(\s+\d+)?$
+            else if (dst.matcher(line).find()) {
                 Service data = new Service();
                 data.setName(name);
-                String protocol = line.trim().split("\\s+")[0];
+                String protocol = line.split("\\s+")[0];
                 data.setProtocol(protocol);
                 data.setSrcStartPort(0);
                 data.setSrcEndPort(0);
-                data.setDstStartPort(Integer.valueOf(line.trim().split("\\s+")[2]));
-                if (line.trim().split("\\s+").length > 3) {
-                    data.setDstEndPort(Integer.valueOf(line.trim().split("\\s+")[3]));
+                data.setDstStartPort(Integer.valueOf(line.split("\\s+")[2]));
+                if (line.split("\\s+").length > 3) {
+                    data.setDstEndPort(Integer.valueOf(line.split("\\s+")[3]));
                 } else {
                     data.setDstEndPort(data.getDstStartPort());
                 }
@@ -168,16 +158,18 @@ public class QMXCParser {
                 if (dao.addService(data) == count) {
                     count++;
                 }
-            } else if (source.matcher(line).find()) {
+            }
+            // \S+ source \d+(\s+\d+)?$
+            else if (src.matcher(line).find()) {
                 Service data = new Service();
                 data.setName(name);
-                String protocol = line.trim().split("\\s+")[0];
+                String protocol = line.split("\\s+")[0];
                 data.setProtocol(protocol);
                 data.setDstStartPort(0);
                 data.setDstEndPort(0);
-                data.setSrcStartPort(Integer.valueOf(line.trim().split("\\s+")[2]));
-                if (line.trim().split("\\s+").length > 3) {
-                    data.setSrcEndPort(Integer.valueOf(line.trim().split("\\s+")[3]));
+                data.setSrcStartPort(Integer.valueOf(line.split("\\s+")[2]));
+                if (line.split("\\s+").length > 3) {
+                    data.setSrcEndPort(Integer.valueOf(line.split("\\s+")[3]));
                 } else {
                     data.setSrcEndPort(data.getSrcStartPort());
                 }
@@ -188,22 +180,19 @@ public class QMXCParser {
             }
         }
     }
-
     private void parseRule() throws IOException, ParserConfigurationException, SAXException {
-        // TODO
         Rule data = null;
-        Net net;
         boolean flag = false;
         String policyNum = "";
         int count = dao.count("rule");
         int countService = dao.count("service");
-        HashSet<Integer> srcSetIds = new HashSet<>();
-        HashSet<Integer> dstSetIds = new HashSet<>();
-        HashSet<Integer> srcNetIds = new HashSet<>();
-        HashSet<Integer> dstNetIds = new HashSet<>();
-        HashSet<Integer> serviceIds = new HashSet<>();
-        HashSet<String> serviceGroups = new HashSet<>();
-
+        HashSet<Integer> srcSetIds = null;
+        HashSet<Integer> dstSetIds = null;
+        HashSet<Integer> srcNetIds = null;
+        HashSet<Integer> dstNetIds = null;
+        HashSet<Integer> srcZoneIds = null;
+        HashSet<Integer> dstZoneIds = null;
+        HashSet<Integer> serviceIds = null;
         Map<String, String> regex = getRegex("rule").get(0);
         Pattern header = Pattern.compile(regex.get("header"));
         Pattern ruleName = Pattern.compile(regex.get("name"));
@@ -214,37 +203,56 @@ public class QMXCParser {
         Pattern dstSet = Pattern.compile(regex.get("dst-set"));
         Pattern serviceName = Pattern.compile(regex.get("service-name"));
         Pattern app = Pattern.compile(regex.get("app"));
-
         BufferedReader reader = new BufferedReader(new FileReader(config));
-
         while (true) {
             String line = reader.readLine();
             if (line == null) {
                 break;
             }
             else {
-                line = line.trim();
+                line = line.trim().replaceAll("\\\\","/");
             }
+            // ^firewall policy \d+$
             if (header.matcher(line).find()) {
                 flag = true;
                 data = new Rule();
+                srcNetIds = new HashSet<>();
+                dstNetIds = new HashSet<>();
+                srcSetIds = new HashSet<>();
+                dstSetIds = new HashSet<>();
+                srcZoneIds = new HashSet<>();
+                dstZoneIds = new HashSet<>();
+                serviceIds = new HashSet<>();
                 policyNum = line.split("\\s+")[2];
             }
             if (flag) {
+                // name (".*?"|\S+)$
                 if (ruleName.matcher(line).find()) {
-                    data.setName(line.trim().split("\\s+")[1]);
-                } else if (action.matcher(line).find()) {
-                    data.setAction(line.trim().split("\\s+")[1]);
-                } else if (srcZone.matcher(line).find()) {
-                    data.setSrcZone(line.trim().split("\\s+")[1]);
-                } else if (dstZone.matcher(line).find()) {
-                    data.setDstZone(line.trim().split("\\s+")[1]);
-                } else if (srcSet.matcher(line).find()) {
-                    srcSetIds.add(dao.addSet(line.trim().split("\\s+")[1]));
-                } else if (dstSet.matcher(line).find()) {
-                    dstSetIds.add(dao.addSet(line.trim().split("\\s+")[1]));
-                } else if (serviceName.matcher(line).find()) {
-                    String name = line.trim().split("\\s+")[1];
+                    data.setName(line.split(split)[1].replace("\"",""));
+                }
+                // action (".*?"|\S+)
+                else if (action.matcher(line).find()) {
+                    data.setAction(line.replace("action","").trim());
+                }
+                // src-zone (".*?"|\S+)$
+                else if (srcZone.matcher(line).find()) {
+                    srcZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
+                }
+                // dst-zone (".*?"|\S+)$
+                else if (dstZone.matcher(line).find()) {
+                    dstZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
+                }
+                // src-addr (".*?"|\S+)$
+                else if (srcSet.matcher(line).find()) {
+                    srcSetIds.add(dao.addSet(line.split(split)[1].replace("\"","")));
+                }
+                // dst-addr (".*?"|\S+)$
+                else if (dstSet.matcher(line).find()) {
+                    dstSetIds.add(dao.addSet(line.split(split)[1].replace("\"","")));
+                }
+                // service (".*?"|\S+)$
+                else if (serviceName.matcher(line).find()) {
+                    String name = line.split(split)[1].replace("\"","");
                     Service service = new Service();
                     service.setName(name);
                     service.setId(countService);
@@ -253,22 +261,16 @@ public class QMXCParser {
                     if (id == countService) {
                         countService++;
                     }
-                } else if (app.matcher(line).find()) {
-                    String name = line.trim().split("\\s+")[1];
-                    Service service = new Service();
-                    service.setName(name);
-                    service.setId(countService);
-                    int id = dao.addService(service);
-                    serviceIds.add(id);
-                    if (id == countService) {
-                        countService++;
-                    }
+                }
+                // app (".*?"|\S+)$
+                else if (app.matcher(line).find()) {
                     data.setSrcSetIds(srcSetIds);
                     data.setSrcNetIds(srcNetIds);
                     data.setDstSetIds(dstSetIds);
                     data.setDstNetIds(dstNetIds);
+                    data.setSrcZoneIds(srcZoneIds);
+                    data.setDstZoneIds(dstZoneIds);
                     data.setServiceIds(serviceIds);
-                    data.setServiceGroups(serviceGroups);
                     data.setId(count);
                     if (data.getName() == null) {
                         data.setName("policy_" + policyNum);

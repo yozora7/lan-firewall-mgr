@@ -20,7 +20,6 @@ public class Dao {
     private String database;
 
     public Dao(JdbcTemplate template, String database) {
-        // TODO 新增SET表, 对比数据导入性能
         this.database = database;
         this.jdbcTemplate = template;
         jdbcTemplate.execute("CREATE DATABASE IF NOT EXISTS " + database);
@@ -56,12 +55,19 @@ public class Dao {
                 "UNIQUE KEY IDX_NAME(`name`), " +
                 "KEY IDX_GROUP(`group`)" +
                 ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;");
+        // zone(id,name)
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS `zone` ( " +
+                "`id` INT(10) NOT NULL AUTO_INCREMENT," +
+                "`name` VARCHAR(255), " +
+                "PRIMARY KEY (`id`), " +
+                "UNIQUE KEY IDX_NAME(`name`) " +
+                ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;");
         // rule(id,name,src_zone,dst_zone,src_net_id,dst_net_id,src_set_id,dst_set_id,service_id,action)
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS `rule` ( " +
                 "`id` INT(10) NOT NULL AUTO_INCREMENT, " +
                 "`name` VARCHAR(255), " +
-                "`src_zone` VARCHAR(255), " +
-                "`dst_zone` VARCHAR(255), " +
+                "`src_zone_id` TEXT, " +
+                "`dst_zone_id` TEXT, " +
                 "`src_net_id` TEXT, " +
                 "`dst_net_id` TEXT, " +
                 "`src_set_id` TEXT, " +
@@ -75,7 +81,6 @@ public class Dao {
 
     public int addSet (String set) {
         String query = "SELECT `id` FROM `set` WHERE `name` = '" + set + "';";
-        query = query.replace("\\\\", "\\\\\\\\");
         jdbcTemplate.execute("USE " + database);
         int id = jdbcTemplate.query(query, rs -> rs.next() ? rs.getInt(1) : 0);
         if (id != 0) {
@@ -122,7 +127,6 @@ public class Dao {
 
     public int addService(Service data) {
         String query = "SELECT `id` FROM `service` WHERE `name` = '" + data.getName() + "' LIMIT 1;";
-        query = query.replace("\\\\", "\\\\\\\\");
         jdbcTemplate.execute("USE " + database);
         int id = jdbcTemplate.query(query, rs -> rs.next() ? rs.getInt(1) : 0);
         if (id != 0) {
@@ -162,9 +166,30 @@ public class Dao {
         jdbcTemplate.update(creator);
     }
 
+    public int addZone (String zone) {
+        String query = "SELECT `id` FROM `zone` WHERE `name` = '" + zone + "';";
+        jdbcTemplate.execute("USE " + database);
+        int id = jdbcTemplate.query(query, rs -> rs.next() ? rs.getInt(1) : 0);
+        if (id != 0) {
+            return id;
+        }
+        else {
+            KeyHolder keyHolder = new GeneratedKeyHolder();
+            jdbcTemplate.execute("USE " + database);
+            String insert = "INSERT INTO `zone` (`name`) VALUES (?)";
+            PreparedStatementCreator creator = connection -> {
+                PreparedStatement ps = connection.prepareStatement(insert, Statement.RETURN_GENERATED_KEYS);
+                ps.setString(1, zone);
+                return ps;
+            };
+            jdbcTemplate.update(creator, keyHolder);
+            return keyHolder.getKey().intValue();
+        }
+    }
+
+
     public int addRule(Rule data) {
         String query = "SELECT `id` FROM `rule` WHERE `name` = '" + data.getName() + "' LIMIT 1;";
-        query = query.replace("\\\\", "\\\\\\\\");
         jdbcTemplate.execute("USE " + database);
         int id = jdbcTemplate.query(query, rs -> rs.next() ? rs.getInt(1) : 0);
         if (id != 0) {
@@ -174,18 +199,18 @@ public class Dao {
             KeyHolder keyHolder = new GeneratedKeyHolder();
             jdbcTemplate.execute("USE " + database);
             String insert = "INSERT INTO `rule` " +
-                    "(`name`, `src_zone`, `dst_zone`, `src_net_id`, `dst_net_id`, `src_set_id`, `dst_set_id`, `service_id`, `action`) " +
+                    "(`name`, `src_zone_id`, `dst_zone_id`, `src_net_id`, `dst_net_id`, `src_set_id`, `dst_set_id`, `service_id`, `action`) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
             PreparedStatementCreator creator = connection -> {
                 PreparedStatement ps = connection.prepareStatement(insert, Statement.RETURN_GENERATED_KEYS);
                 ps.setString(1, data.getName());
-                ps.setString(2, data.getSrcZone());
-                ps.setString(3, data.getDstZone());
+                ps.setString(2, setToString(data.getSrcZoneIds(), Integer.class));
+                ps.setString(3, setToString(data.getDstZoneIds(), Integer.class));
                 ps.setString(4, setToString(data.getSrcNetIds(), Integer.class));
                 ps.setString(5, setToString(data.getDstNetIds(), Integer.class));
-                ps.setString(6, setToString(data.getServiceIds(), Integer.class));
-                ps.setString(7, setToString(data.getSrcSetIds(), Integer.class));
-                ps.setString(8, setToString(data.getDstSetIds(), Integer.class));
+                ps.setString(6, setToString(data.getSrcSetIds(), Integer.class));
+                ps.setString(7, setToString(data.getDstSetIds(), Integer.class));
+                ps.setString(8, setToString(data.getServiceIds(), Integer.class));
                 ps.setString(9, data.getAction());
                 return ps;
             };

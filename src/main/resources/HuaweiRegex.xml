@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <regex>
     <address>
-        <header>ip address-set \S+ type</header>
+        <header>ip address-set (".*?"|\S+) type</header>
         <host>address \d+ \d\S+ 0$</host>
         <range>address \d+ range \d\S+ \d\S+$</range>
         <mask>address \d+ \d\S+ mask \d+$</mask>
@@ -9,28 +9,28 @@
         <wildcard>address \d+ \d\S+ \d\S+$</wildcard>
     </address>
     <service-set>
-        <header>ip service-set \S+ type object</header>
+        <header>ip service-set (".*?"|\S+) type object \d+$</header>
         <content>service \d+ protocol \S+ source-port \d+</content>
     </service-set>
     <service-group>
-        <header>ip service-set \S+ type group</header>
-        <set>service \d+ service-set \S+$</set>
+        <header>ip service-set (".*?"|\S+) type group \d+$</header>
+        <set>service \d+ service-set (".*?"|\S+)$</set>
     </service-group>
     <rule>
-        <header>rule name \S+</header>
-        <src-zone>source-zone \S+$</src-zone>
-        <src-set>source-address address-set \S+$</src-set>
+        <header>rule name (".*?"|\S+)$</header>
+        <src-zone>source-zone (".*?"|\S+)$</src-zone>
+        <src-set>source-address address-set (".*?"|\S+)$</src-set>
         <src-mask>source-address \d\S+ mask \d\S+$</src-mask>
-        <src-range>source-address \d\S+ range \d\S+$</src-range>
+        <src-range>source-address range \d\S+ \d\S+$</src-range>
         <src-v6>source-address \S+:\S+ \d+$</src-v6>
-        <dst-zone>destination-zone \S+$</dst-zone>
-        <dst-set>destination-address address-set \S+$</dst-set>
+        <dst-zone>destination-zone (".*?"|\S+)$</dst-zone>
+        <dst-set>destination-address address-set (".*?"|\S+)$</dst-set>
         <dst-mask>destination-address \d\S+ mask \d\S+$</dst-mask>
         <dst-range>destination-address \d\S+ range \d\S+$</dst-range>
         <dst-v6>destination-address \S+:\S+ \d+$</dst-v6>
-        <service-name>service \S+$</service-name>
+        <service-name>service (".*?"|\S+)$</service-name>
         <service-content>service protocol \S+ destination-port \d+</service-content>
-        <app>application app \S+</app>
-        <action>action \S+</action>
+        <app>application app (".*?"|\S+)</app>
+        <action>action (".*?"|\S+)</action>
     </rule>
 </regex>

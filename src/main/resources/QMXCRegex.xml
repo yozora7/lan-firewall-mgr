@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <regex>
     <address>
-        <header>^address \S+$</header>
+        <header>^address (".*?"|\S+)$</header>
         <net>net-address \d+.\d+.\d+.\d+/\d+$</net>
         <host>host-address \d+.\d+.\d+.\d+$</host>
         <range>range-address \d+.\d+.\d+.\d+ \d+.\d+.\d+.\d+$</range>
     </address>
     <service>
-        <header>^service \S+$</header>
+        <header>^service (".*?"|\S+)$</header>
         <both>\S+ dest \d+(\s+\d+)? source \d+(\s+\d+)?$</both>
         <dst>\S+ dest \d+(\s+\d+)?$</dst>
         <src>\S+ source \d+(\s+\d+)?$</src>
     </service>
     <rule>
         <header>^firewall policy \d+$</header>
-        <name>name \S+$</name>
-        <action>action \S+$</action>
+        <name>name (".*?"|\S+)$</name>
+        <action>action (".*?"|\S+)</action>
         <enable>enable$</enable>
         <disable>disable$</disable>
-        <src-zone>src-zone \S+$</src-zone>
-        <dst-zone>dst-zone \S+$</dst-zone>
-        <src-set>src-addr \D\S+$</src-set>
-        <dst-set>dst-addr \S+$</dst-set>
-        <service-name>service \D\S+$</service-name>
-        <app>app \D\S+$</app>
+        <src-zone>src-zone (".*?"|\S+)$</src-zone>
+        <dst-zone>dst-zone (".*?"|\S+)$</dst-zone>
+        <src-set>src-addr (".*?"|\S+)$</src-set>
+        <dst-set>dst-addr (".*?"|\S+)$</dst-set>
+        <service-name>service (".*?"|\S+)$</service-name>
+        <app>app (".*?"|\S+)$</app>
     </rule>
 </regex>

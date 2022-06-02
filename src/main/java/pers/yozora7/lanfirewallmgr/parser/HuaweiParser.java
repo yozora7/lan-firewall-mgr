@@ -21,6 +21,7 @@ import static pers.yozora7.lanfirewallmgr.utils.NetUtils.wildcardToMask;
 public class HuaweiParser {
     private String config;
     private Dao dao;
+    private static String split = "\\s+(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)";
     public void parse(String config, Dao dao) throws IOException, ParserConfigurationException, SAXException {
         this.config = config;
         this.dao = dao;
@@ -29,7 +30,6 @@ public class HuaweiParser {
         parseServiceGroup();
         parseRule();
     }
-
     // 从XML读取正则表达式
     private List<Map<String, String>> getRegex(String nodeName) throws ParserConfigurationException, SAXException, IOException {
         SAXParserFactory factory = SAXParserFactory.newInstance();
@@ -40,116 +40,96 @@ public class HuaweiParser {
         xmlReader.parse("src/main/resources/HuaweiRegex.xml");
         return handler.getList();
     }
-    // address-set
+    // ip address-set
     private void parseNetSet() throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         int count = dao.count("net");
         int setId = 0;
-        // 正则
         Map<String, String> regex = getRegex("address").get(0);
-        // 起始字段
         Pattern header = Pattern.compile(regex.get("header"));
-        // 单IP
         Pattern host = Pattern.compile(regex.get("host"));
-        // 范围
         Pattern range = Pattern.compile(regex.get("range"));
-        // 带掩码
-        Pattern withMask = Pattern.compile(regex.get("mask"));
-        // 带长掩码
-        Pattern withLongMask = Pattern.compile(regex.get("long-mask"));
-        // 带反掩码
-        Pattern withWildcardMask = Pattern.compile(regex.get("wildcard"));
-        // 读取配置文件
+        Pattern mask = Pattern.compile(regex.get("mask"));
+        Pattern longMask = Pattern.compile(regex.get("long-mask"));
+        Pattern wildcard = Pattern.compile(regex.get("wildcard"));
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
-            // 文件末尾
             if (line == null) {
                 break;
             }
-            // 开始读取文件
             else {
-                line = line.trim();
+                line = line.trim().replaceAll("\\\\","/");
             }
-            // ip address-set ... type object
+            // ip address-set (".*?"|\S+) type
             if (header.matcher(line).find()) {
-                setId = dao.addSet( line.trim().split("\\s+")[2]);
+                setId = dao.addSet(line.split(split)[2].replace("\"",""));
                 flag = true;
                 continue;
             }
-            // 存入地址
             if (flag) {
-                String[] temp = line.trim().split("\\s+");
+                String[] temp = line.split("\\s+");
                 Net data = new Net();
                 data.setSetId(setId);
-                // address n x.x.x.x 0
+                // address \d+ \d\S+ 0$
                 if (host.matcher(line).find()) {
                     data.setStart(temp[2] + "/32");
                     data.setEnd(temp[2] + "/32");
-                    // 添加地址
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
                     }
                 }
-                // address n range start end
+                // address \d+ range \d\S+ \d\S+$
                 else if (range.matcher(line).find()) {
                     data.setStart(temp[3] + "/32");
                     data.setEnd(temp[4] + "/32");
-                    // 添加地址
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
                     }
                 }
-                // address n x.x.x.x mask x
-                else if (withMask.matcher(line).find()) {
+                // address \d+ \d\S+ mask \d+$
+                else if (mask.matcher(line).find()) {
                     data.setStart(temp[2] + "/" + temp[4]);
                     data.setEnd(temp[2] + "/" + temp[4]);
-                    // 添加地址
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
                     }
                 }
-                // address n x.x.x.x mask x.x.x.x
-                else if (withLongMask.matcher(line).find()) {
+                // address \d+ \d\S+ mask \d+.\S+$
+                else if (longMask.matcher(line).find()) {
                     data.setStart(temp[2] + "/" + longMaskToShort(temp[4]));
                     data.setEnd(temp[2] + "/" + longMaskToShort(temp[4]));
-                    // 添加地址
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
                     }
                 }
-                // address n x.x.x.x x.x.x.x
-                else if (withWildcardMask.matcher(line).find()) {
+                // address \d+ \d\S+ \d\S+$
+                else if (wildcard.matcher(line).find()) {
                     data.setStart(temp[2] + "/" + wildcardToMask(temp[3]));
                     data.setEnd(temp[2] + "/" + wildcardToMask(temp[3]));
-                    // 添加地址
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
                     }
                 }
             }
-            // 地址集记录结束
-            if (line.contains("#")) {
+            if (line.equals("#")) {
                 flag = false;
             }
         }
         reader.close();
     }
-
-    // service-set
+    // ip service-set type object
     private void parseServiceSet() throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         String name = null;
         int count = dao.count("service");
         Map<String, String> regex = getRegex("service-set").get(0);
-        // 起始字段
         Pattern header = Pattern.compile(regex.get("header"));
-        // 源端口和目标端口
         Pattern content = Pattern.compile(regex.get("content"));
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
@@ -158,63 +138,52 @@ public class HuaweiParser {
                 break;
             }
             else {
-                line = line.trim();
+                line = line.trim().replaceAll("\\\\","/");
             }
-            // ip service-set ... type object
-            if (!flag && header.matcher(line).find()) {
-                name = line.trim().split("\\s+")[2];
+            // ip service-set (".*?"|\S+) type object \d+$
+            if (header.matcher(line).find()) {
+                name = line.split(split)[2].replace("\"","");
                 flag = true;
                 continue;
             }
-            // service n protocol ... source-port n1 [to n2] destination-port n3 [to n4]
-            if (flag && content.matcher(line).find()) {
-                Service data = new Service();
-                String protocol = line.trim().split("\\s+")[3];
-                data.setName(name);
-                data.setProtocol(protocol);
-                // 起始/结束端口
-                String[] srcPorts = line.trim()
-                        .split("source-port|destination-port")[1]
-                        .replaceAll("\\s+", "")
-                        .split("to");
-                String[] dstPorts = line.trim()
-                        .split("source-port|destination-port")[2]
-                        .replaceAll("\\s+", "")
-                        .split("to");
-                data.setSrcStartPort(Integer.valueOf(srcPorts[0]));
-                data.setDstStartPort(Integer.valueOf(dstPorts[0]));
-                if (srcPorts.length > 1) {
-                    data.setSrcEndPort(Integer.valueOf(srcPorts[1]));
+            if (flag) {
+                boolean test = line.matches(regex.get("content"));
+                // service \d+ protocol \S+ source-port \d+
+                if (content.matcher(line).find()) {
+                    Service data = new Service();
+                    data.setName(name);
+                    data.setProtocol(line.split("\\s+")[3]);
+                    String[] srcPorts = line.split("source-port|destination-port")[1].replaceAll("\\s+", "").split("to");
+                    String[] dstPorts = line.split("source-port|destination-port")[2].replaceAll("\\s+", "").split("to");
+                    data.setSrcStartPort(Integer.valueOf(srcPorts[0]));
+                    data.setDstStartPort(Integer.valueOf(dstPorts[0]));
+                    if (srcPorts.length > 1) {
+                        data.setSrcEndPort(Integer.valueOf(srcPorts[1]));
+                    } else {
+                        data.setSrcEndPort(Integer.valueOf(srcPorts[0]));
+                    }
+                    if (dstPorts.length > 1) {
+                        data.setDstEndPort(Integer.valueOf(dstPorts[1]));
+                    } else {
+                        data.setDstEndPort(Integer.valueOf(dstPorts[0]));
+                    }
+                    data.setId(count);
+                    if (dao.addService(data) == count) {
+                        count++;
+                    }
+                } else if (line.equals("#")) {
+                    flag = false;
                 }
-                else {
-                    data.setSrcEndPort(Integer.valueOf(srcPorts[0]));
-                }
-                if (dstPorts.length > 1) {
-                    data.setDstEndPort(Integer.valueOf(dstPorts[1]));
-                }
-                else {
-                    data.setDstEndPort(Integer.valueOf(dstPorts[0]));
-                }
-                data.setId(count);
-                if (dao.addService(data) == count) {
-                    count++;
-                }
-            }
-            // 记录结束
-            if (line.contains("#")) {
-                flag = false;
             }
         }
         reader.close();
     }
-
+    // ip service-set type group
     private void parseServiceGroup() throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         String group = null;
         Map<String, String> regex = getRegex("service-group").get(0);
-        // 起始字段
         Pattern header = Pattern.compile(regex.get("header"));
-        // service-set
         Pattern set = Pattern.compile(regex.get("set"));
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
@@ -223,27 +192,28 @@ public class HuaweiParser {
                 break;
             }
             else {
-                line = line.trim();
+                line = line.trim().replaceAll("\\\\","/");
             }
-            // ip service-set \S+ type group
-            if (!flag && header.matcher(line).find()) {
-                group = line.trim().split("\\s+")[2];
+            // ip service-set (".*?"|\S+) type group \d+$
+            if (header.matcher(line).find()) {
+                group = line.split(split)[2].replace("\"","");
                 flag = true;
                 continue;
             }
-            // service n service-set ...
-            if (flag && set.matcher(line).find()) {
-                String service = line.trim().split("\\s+")[3];
-                dao.addGroup(service, group);
-            }
-            // 记录结束
-            if (line.contains("#")) {
-                flag = false;
+            // service \d+ service-set (".*?"|\S+)$
+            if (flag) {
+                if (set.matcher(line).find()) {
+                    String service = line.split(split)[3].replace("\"","");
+                    dao.addGroup(service, group);
+                }
+                else if (line.equals("#")) {
+                    flag = false;
+                }
             }
         }
         reader.close();
     }
-
+    // rule
     private void parseRule() throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         Rule data = null;
@@ -251,38 +221,27 @@ public class HuaweiParser {
         int count = dao.count("rule");
         int countNet = dao.count("net");
         int countService = dao.count("service");
-        HashSet<Integer> srcSetIds = new HashSet<>();
-        HashSet<Integer> dstSetIds = new HashSet<>();
-        HashSet<Integer> srcNetIds = new HashSet<>();
-        HashSet<Integer> dstNetIds = new HashSet<>();
-        HashSet<Integer> serviceIds = new HashSet<>();
-        HashSet<String> serviceGroups = new HashSet<>();
+        HashSet<Integer> srcSetIds = null;
+        HashSet<Integer> dstSetIds = null;
+        HashSet<Integer> srcZoneIds = null;
+        HashSet<Integer> dstZoneIds = null;
+        HashSet<Integer> srcNetIds = null;
+        HashSet<Integer> dstNetIds = null;
+        HashSet<Integer> serviceIds = null;
+        HashSet<String> serviceGroups = null;
         Map<String, String> regex = getRegex("rule").get(0);
-        // 起始字段
         Pattern header = Pattern.compile(regex.get("header"));
-        // 源安全域
         Pattern srcZone = Pattern.compile(regex.get("src-zone"));
-        // 源地址集
         Pattern srcSet = Pattern.compile(regex.get("src-set"));
-        // 源地址 (带掩码)
         Pattern srcMask = Pattern.compile(regex.get("src-mask"));
-        // 源地址 (范围)
         Pattern srcRange = Pattern.compile(regex.get("src-range"));
-        // 目标安全域
         Pattern dstZone = Pattern.compile(regex.get("dst-zone"));
-        // 目标地址集
         Pattern dstSet = Pattern.compile(regex.get("dst-set"));
-        // 目标地址 (带掩码)
         Pattern dstMask = Pattern.compile(regex.get("dst-mask"));
-        // 目标地址 (范围)
         Pattern dstRange = Pattern.compile(regex.get("dst-range"));
-        // 服务名
         Pattern serviceName = Pattern.compile(regex.get("service-name"));
-        // 服务
-        Pattern serviceContent = Pattern.compile(regex.get("service-content"));
-        // 应用 (视为服务)
         Pattern app = Pattern.compile(regex.get("app"));
-        // 行为
+        Pattern serviceContent = Pattern.compile(regex.get("service-content"));
         Pattern action = Pattern.compile(regex.get("action"));
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
@@ -291,27 +250,35 @@ public class HuaweiParser {
                 break;
             }
             else {
-                line = line.trim();
+                line = line.trim().replaceAll("\\\\","/");
             }
-            // 规则开始
+            // rule name (".*?"|\S+)
             if (header.matcher(line).find()) {
                 data = new Rule();
-                data.setName(line.trim().split("\\s+")[2]);
+                data.setName(line.split(split)[2].replace("\"",""));
+                srcSetIds = new HashSet<>();
+                dstSetIds = new HashSet<>();
+                srcNetIds = new HashSet<>();
+                dstNetIds = new HashSet<>();
+                srcZoneIds = new HashSet<>();
+                dstZoneIds = new HashSet<>();
+                serviceIds = new HashSet<>();
+                serviceGroups = new HashSet<>();
                 flag = true;
             }
             if (flag) {
-                // source-zone
+                // source-zone (".*?"|\S+)
                 if (srcZone.matcher(line).find()) {
-                    data.setSrcZone(line.trim().split("\\s+")[1]);
+                    srcZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
                 }
-                // source-address address-set
+                // source-address address-set (".*?"|\S+)$
                 else if (srcSet.matcher(line).find()) {
-                    srcSetIds.add(dao.addSet(line.trim().split("\\s+")[2]));
+                    srcSetIds.add(dao.addSet(line.split(split)[2].replace("\"","")));
                 }
-                // source-address x.x.x.x mask x.x.x.x
+                // source-address \d\S+ mask \d\S+$
                 else if (srcMask.matcher(line).find()) {
                     net = new Net();
-                    net.setStart(line.trim().split("\\s+")[1] + "/" + longMaskToShort(line.trim().split("\\s+")[3]));
+                    net.setStart(line.split("\\s+")[1] + "/" + longMaskToShort(line.split("\\s+")[3]));
                     net.setEnd(net.getStart());
                     net.setSetId(0);
                     net.setId(countNet);
@@ -321,11 +288,11 @@ public class HuaweiParser {
                         countNet++;
                     }
                 }
-                // source-address range
+                // source-address range \d\S+ \d\S+$
                 else if (srcRange.matcher(line).find()) {
                     net = new Net();
-                    net.setStart(line.trim().split("\\s+")[2] + "/32");
-                    net.setEnd(line.trim().split("\\s+")[3] + "/32");
+                    net.setStart(line.split("\\s+")[2] + "/32");
+                    net.setEnd(line.split("\\s+")[3] + "/32");
                     net.setSetId(0);
                     net.setId(countNet);
                     int id = dao.addNet(net);
@@ -334,18 +301,18 @@ public class HuaweiParser {
                         countNet++;
                     }
                 }
-                // destination-zone
+                // destination-zone (".*?"|\S+)$
                 else if (dstZone.matcher(line).find()) {
-                    data.setDstZone(line.trim().split("\\s+")[1]);
+                    dstZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
                 }
-                // destination-address address-set
+                // destination-address address-set (".*?"|\S+)$
                 else if (dstSet.matcher(line).find()) {
-                    dstSetIds.add(dao.addSet(line.trim().split("\\s+")[2]));
+                    dstSetIds.add(dao.addSet(line.split(split)[2].replace("\"","")));
                 }
-                // destination-address x.x.x.x mask x.x.x.x
+                // destination-address \d\S+ mask \d\S+$
                 else if (dstMask.matcher(line).find()) {
                     net = new Net();
-                    net.setStart(line.trim().split("\\s+")[1] + "/" + longMaskToShort(line.trim().split("\\s+")[3]));
+                    net.setStart(line.split("\\s+")[1] + "/" + longMaskToShort(line.split("\\s+")[3]));
                     net.setEnd(net.getStart());
                     net.setSetId(0);
                     net.setId(countNet);
@@ -355,11 +322,11 @@ public class HuaweiParser {
                         countNet++;
                     }
                 }
-                // destination-address range
+                // destination-address \d\S+ range \d\S+$
                 else if (dstRange.matcher(line).find()) {
                     net = new Net();
-                    net.setStart(line.trim().split("\\s+")[2] + "/32");
-                    net.setEnd(line.trim().split("\\s+")[3] + "/32");
+                    net.setStart(line.split("\\s+")[2] + "/32");
+                    net.setEnd(line.split("\\s+")[3] + "/32");
                     net.setSetId(0);
                     net.setId(countNet);
                     int id = dao.addNet(net);
@@ -368,14 +335,14 @@ public class HuaweiParser {
                         countNet++;
                     }
                 }
-                // service
+                // service (".*?"|\S+)$
                 else if (serviceName.matcher(line).find()) {
-                    String name = line.trim().split("\\s+")[1];
-                    // service-group
+                    String name = line.split(split)[1].replace("\"","");
+                    // group
                     if (dao.isServiceGroup(name)) {
                         serviceGroups.add(name);
                     }
-                    // service-set
+                    // set
                     else {
                         Service service = new Service();
                         service.setName(name);
@@ -387,10 +354,10 @@ public class HuaweiParser {
                         }
                     }
                 }
-                // application (as service)
+                // application app (".*?"|\S+)
                 else if (app.matcher(line).find()) {
                     Service service = new Service();
-                    service.setName(line.trim().split("\\s+")[1]);
+                    service.setName(line.split(split)[2].replace("\"",""));
                     service.setId(countService);
                     int id = dao.addService(service);
                     serviceIds.add(id);
@@ -398,23 +365,18 @@ public class HuaweiParser {
                         countService++;
                     }
                 }
-                // service protocol ... destination-port ...
+                // service protocol \S+ destination-port \d+
                 else if (serviceContent.matcher(line).find()) {
                     Service service = new Service();
-                    String protocol = line.trim().split("\\s+")[2];
+                    String protocol = line.split("\\s+")[2];
                     service.setProtocol(protocol);
-                    // 目标端口
-                    String[] dstPorts = line.trim()
-                            .split("destination-port")[1]
-                            .replaceAll("\\s+", "")
-                            .split("to");
+                    String[] dstPorts = line.split("destination-port")[1].replaceAll("\\s+","").split("to");
                     service.setDstStartPort(Integer.valueOf(dstPorts[0]));
                     if (dstPorts.length > 1) {
                         service.setDstEndPort(Integer.valueOf(dstPorts[1]));
-                        // 服务命名: 协议_目标端口
+                        // 服务命名 协议_目标端口
                         service.setName(protocol + "_" + dstPorts[0] + "_" + dstPorts[1]);
-                    }
-                    else {
+                    } else {
                         service.setDstEndPort(Integer.valueOf(dstPorts[0]));
                         service.setName(protocol + "_" + dstPorts[0]);
                     }
@@ -425,17 +387,18 @@ public class HuaweiParser {
                         countService++;
                     }
                 }
-                // action
-                if (action.matcher(line).find() && flag) {
+                // action (".*?"|\S+)
+                else if (action.matcher(line).find()) {
                     flag = false;
                     data.setSrcSetIds(srcSetIds);
                     data.setSrcNetIds(srcNetIds);
+                    data.setSrcZoneIds(srcZoneIds);
                     data.setDstSetIds(dstSetIds);
                     data.setDstNetIds(dstNetIds);
+                    data.setDstZoneIds(dstZoneIds);
                     data.setServiceIds(serviceIds);
                     data.setServiceGroups(serviceGroups);
-                    data.setAction(line.replace("action", "").trim());
-                    // 记录规则
+                    data.setAction(line.replace("action","").trim());
                     data.setId(count);
                     if (dao.addRule(data) == count) {
                         count++;

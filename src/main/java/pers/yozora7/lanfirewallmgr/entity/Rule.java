@@ -17,13 +17,13 @@ public class Rule {
     // 名称
     private String name;
     // 源端安全域
-    private String srcZone;
+    private HashSet<Integer> srcZoneIds;
     // 源端地址集列表 (source-address address-set ...)
     private HashSet<Integer> srcSetIds;
     // 源端IP地址列表
     private HashSet<Integer> srcNetIds;
     // 目标端安全域
-    private String dstZone;
+    private HashSet<Integer> dstZoneIds;
     // 目标端地址集列表
     private HashSet<Integer> dstSetIds;
     // 目标端IP地址列表

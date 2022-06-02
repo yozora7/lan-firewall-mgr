@@ -1,27 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <regex>
     <address>
-        <header>object-group ip address \S+</header>
-        <host>\d+ network host address \d\S+</host>
+        <header>object-group ip address (".*?"|\S+)$</header>
+        <host>\d+ network host address \d\S+$</host>
         <range>\d+ network range \d\S+ \d\S+$</range>
         <subnet>\d+ network subnet \S+ \d\S+$</subnet>
     </address>
-    <service-set>
-        <header>object-group service \S+</header>
+    <service>
+        <header>object-group service (".*?"|\S+)$</header>
         <eq>\d+ service \S+ destination \D+ \d+$</eq>
         <range>\d+ service \S+ destination range \d+ \d+$</range>
         <both-eq>\d+ service \S+ source \D+ \d+ destination \D+ \d+$</both-eq>
         <both-range>\d+ service \S+ source range \d+ \d+ destination range \d+ \d+$</both-range>
         <range-eq>\d+ service \S+ source range \d+ \d+ destination \D+ \d+$</range-eq>
         <eq-range>\d+ service \S+ source \D+ \d+ destination range \d+ \d+$</eq-range>
-    </service-set>
+    </service>
     <rule>
-        <header>rule \d+ name \S+</header>
-        <action>action \S+</action>
-        <src-zone>source-zone \S+</src-zone>
-        <src-set>source-ip \S+</src-set>
-        <dst-zone>destination-zone \S+</dst-zone>
-        <dst-set>destination-ip \S+</dst-set>
-        <service-name>service \S+</service-name>
+        <header>rule \d+ name (".*?"|\S+)$</header>
+        <action>action (".*?"|\S+)</action>
+        <src-zone>source-zone (".*?"|\S+)$</src-zone>
+        <src-set>source-ip (".*?"|\S+)$</src-set>
+        <dst-zone>destination-zone (".*?"|\S+)$</dst-zone>
+        <dst-set>destination-ip (".*?"|\S+)$</dst-set>
+        <service-name>service (".*?"|\S+)$</service-name>
+        <user>user (".*?"|\S+)$</user>
     </rule>
 </regex>
