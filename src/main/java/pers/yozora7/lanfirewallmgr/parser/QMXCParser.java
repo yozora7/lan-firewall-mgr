@@ -15,7 +15,7 @@ import java.io.*;
 import java.util.*;
 import java.util.regex.Pattern;
 
-public class QMXCConfParser {
+public class QMXCParser {
     private String config;
     private Dao dao;
     public void parse(String config, Dao dao) throws IOException, ParserConfigurationException, SAXException {
@@ -33,7 +33,7 @@ public class QMXCConfParser {
         XMLReader xmlReader = parse.getXMLReader();
         SAXParserHandler handler = new SAXParserHandler(nodeName);
         xmlReader.setContentHandler(handler);
-        xmlReader.parse("src/main/java/pers/yozora7/lanfirewallmgr/xml/QMXCRegex.xml");
+        xmlReader.parse("src/main/resources/QMXCRegex.xml");
         return handler.getList();
     }
 
@@ -247,10 +247,6 @@ public class QMXCConfParser {
                     String name = line.trim().split("\\s+")[1];
                     Service service = new Service();
                     service.setName(name);
-                    service.setSrcStartPort(0);
-                    service.setSrcEndPort(0);
-                    service.setDstStartPort(0);
-                    service.setDstEndPort(0);
                     service.setId(countService);
                     int id = dao.addService(service);
                     serviceIds.add(id);
@@ -258,6 +254,15 @@ public class QMXCConfParser {
                         countService++;
                     }
                 } else if (app.matcher(line).find()) {
+                    String name = line.trim().split("\\s+")[1];
+                    Service service = new Service();
+                    service.setName(name);
+                    service.setId(countService);
+                    int id = dao.addService(service);
+                    serviceIds.add(id);
+                    if (id == countService) {
+                        countService++;
+                    }
                     data.setSrcSetIds(srcSetIds);
                     data.setSrcNetIds(srcNetIds);
                     data.setDstSetIds(dstSetIds);

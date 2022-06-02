@@ -7,8 +7,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.xml.sax.SAXException;
 import pers.yozora7.lanfirewallmgr.entity.Result;
-import pers.yozora7.lanfirewallmgr.parser.HuaweiConfParser;
-import pers.yozora7.lanfirewallmgr.parser.QMXCConfParser;
+import pers.yozora7.lanfirewallmgr.parser.H3CParser;
+import pers.yozora7.lanfirewallmgr.parser.HuaweiParser;
+import pers.yozora7.lanfirewallmgr.parser.QMXCParser;
 
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
@@ -27,11 +28,15 @@ public class Controller {
         Dao dao = new Dao(jdbcTemplate, database);
         log.info("{}", database);
         if (type.equals("huawei")) {
-            HuaweiConfParser parser = new HuaweiConfParser();
+            HuaweiParser parser = new HuaweiParser();
             parser.parse(config, dao);
         }
         else if (type.equals("QMXC")) {
-            QMXCConfParser parser = new QMXCConfParser();
+            QMXCParser parser = new QMXCParser();
+            parser.parse(config, dao);
+        }
+        else if (type.equals("H3C")) {
+            H3CParser parser = new H3CParser();
             parser.parse(config, dao);
         }
         return "success";

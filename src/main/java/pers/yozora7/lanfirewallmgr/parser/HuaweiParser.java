@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 import static pers.yozora7.lanfirewallmgr.utils.NetUtils.longMaskToShort;
 import static pers.yozora7.lanfirewallmgr.utils.NetUtils.wildcardToMask;
 
-public class HuaweiConfParser {
+public class HuaweiParser {
     private String config;
     private Dao dao;
     public void parse(String config, Dao dao) throws IOException, ParserConfigurationException, SAXException {
@@ -37,7 +37,7 @@ public class HuaweiConfParser {
         XMLReader xmlReader = parse.getXMLReader();
         SAXParserHandler handler = new SAXParserHandler(nodeName);
         xmlReader.setContentHandler(handler);
-        xmlReader.parse("src/main/java/pers/yozora7/lanfirewallmgr/xml/HuaweiRegex.xml");
+        xmlReader.parse("src/main/resources/HuaweiRegex.xml");
         return handler.getList();
     }
     // address-set
@@ -379,10 +379,6 @@ public class HuaweiConfParser {
                     else {
                         Service service = new Service();
                         service.setName(name);
-                        service.setSrcStartPort(0);
-                        service.setSrcEndPort(0);
-                        service.setDstStartPort(0);
-                        service.setDstEndPort(0);
                         service.setId(countService);
                         int id = dao.addService(service);
                         serviceIds.add(id);
@@ -395,10 +391,6 @@ public class HuaweiConfParser {
                 else if (app.matcher(line).find()) {
                     Service service = new Service();
                     service.setName(line.trim().split("\\s+")[1]);
-                    service.setSrcStartPort(0);
-                    service.setSrcEndPort(0);
-                    service.setDstStartPort(0);
-                    service.setDstEndPort(0);
                     service.setId(countService);
                     int id = dao.addService(service);
                     serviceIds.add(id);

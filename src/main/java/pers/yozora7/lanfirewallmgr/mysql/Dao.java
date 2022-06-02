@@ -75,6 +75,7 @@ public class Dao {
 
     public int addSet (String set) {
         String query = "SELECT `id` FROM `set` WHERE `name` = '" + set + "';";
+        query = query.replace("\\\\", "\\\\\\\\");
         jdbcTemplate.execute("USE " + database);
         int id = jdbcTemplate.query(query, rs -> rs.next() ? rs.getInt(1) : 0);
         if (id != 0) {
@@ -120,7 +121,8 @@ public class Dao {
     }
 
     public int addService(Service data) {
-        String query = "SELECT `ID` FROM `service` WHERE `NAME` = '" + data.getName() + "' LIMIT 1;";
+        String query = "SELECT `id` FROM `service` WHERE `name` = '" + data.getName() + "' LIMIT 1;";
+        query = query.replace("\\\\", "\\\\\\\\");
         jdbcTemplate.execute("USE " + database);
         int id = jdbcTemplate.query(query, rs -> rs.next() ? rs.getInt(1) : 0);
         if (id != 0) {
@@ -149,7 +151,7 @@ public class Dao {
     }
 
     public void addGroup(String serviceName, String groupName) {
-        String update = "UPDATE `service` SET `GROUP` = ? WHERE `NAME` = ?;";
+        String update = "UPDATE `service` SET `group` = ? WHERE `name` = ?;";
         PreparedStatementCreator creator = connection -> {
             PreparedStatement ps = connection.prepareStatement(update);
             ps.setString(1, groupName);
@@ -161,7 +163,8 @@ public class Dao {
     }
 
     public int addRule(Rule data) {
-        String query = "SELECT `ID` FROM `rule` WHERE `NAME` = '" + data.getName() + "' LIMIT 1;";
+        String query = "SELECT `id` FROM `rule` WHERE `name` = '" + data.getName() + "' LIMIT 1;";
+        query = query.replace("\\\\", "\\\\\\\\");
         jdbcTemplate.execute("USE " + database);
         int id = jdbcTemplate.query(query, rs -> rs.next() ? rs.getInt(1) : 0);
         if (id != 0) {
@@ -170,9 +173,6 @@ public class Dao {
         else {
             KeyHolder keyHolder = new GeneratedKeyHolder();
             jdbcTemplate.execute("USE " + database);
-
-
-
             String insert = "INSERT INTO `rule` " +
                     "(`name`, `src_zone`, `dst_zone`, `src_net_id`, `dst_net_id`, `src_set_id`, `dst_set_id`, `service_id`, `action`) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
@@ -195,7 +195,7 @@ public class Dao {
     }
 
     public boolean isServiceGroup (String group) {
-        String query = "SELECT `ID` FROM `service` WHERE `GROUP` = '" + group + "' LIMIT 1;";
+        String query = "SELECT `id` FROM `service` WHERE `group` = '" + group + "' LIMIT 1;";
         jdbcTemplate.execute("USE " + database);
         return jdbcTemplate.query(query, rs -> rs.next() ? true : false);
     }

@@ -17,7 +17,7 @@
         <set>service \d+ service-set \S+$</set>
     </service-group>
     <rule>
-        <header>rule name \S+$</header>
+        <header>rule name \S+</header>
         <src-zone>source-zone \S+$</src-zone>
         <src-set>source-address address-set \S+$</src-set>
         <src-mask>source-address \d\S+ mask \d\S+$</src-mask>
