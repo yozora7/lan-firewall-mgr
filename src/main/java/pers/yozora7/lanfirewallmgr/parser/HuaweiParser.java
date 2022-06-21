@@ -15,8 +15,8 @@ import java.io.*;
 import java.util.*;
 import java.util.regex.Pattern;
 
-import static pers.yozora7.lanfirewallmgr.utils.NetUtils.longMaskToShort;
-import static pers.yozora7.lanfirewallmgr.utils.NetUtils.wildcardToMask;
+import static pers.yozora7.lanfirewallmgr.utils.Utils.longMaskToShort;
+import static pers.yozora7.lanfirewallmgr.utils.Utils.wildcardToMask;
 
 public class HuaweiParser {
     private String config;

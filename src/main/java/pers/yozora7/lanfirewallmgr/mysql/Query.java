@@ -3,7 +3,7 @@ package pers.yozora7.lanfirewallmgr.mysql;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import pers.yozora7.lanfirewallmgr.entity.Result;
-import pers.yozora7.lanfirewallmgr.utils.NetUtils;
+import pers.yozora7.lanfirewallmgr.utils.Utils;
 
 import java.sql.SQLException;
 import java.util.HashSet;
@@ -39,7 +39,7 @@ public class Query {
                 String startIp = start.split("/")[0];
                 String endIp = end.split("/")[0];
                 int setId = rs.getInt(4);
-                if (end.equals(start) ? NetUtils.isIpInCidr(ip, start) : NetUtils.isIpInRange(ip, startIp, endIp)) {
+                if (end.equals(start) ? Utils.isIpInCidr(ip, start) : Utils.isIpInRange(ip, startIp, endIp)) {
                     String sql2 = "SELECT `id`, `name`, `src_zone`, `dst_zone`, `src_net_id`, `src_set_id`, `service_id`, `action` " +
                             "FROM `rule` " +
                             "WHERE `dst_net_id` = '" + id + "'" +

@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import static pers.yozora7.lanfirewallmgr.utils.NetUtils.longMaskToShort;
+import static pers.yozora7.lanfirewallmgr.utils.Utils.longMaskToShort;
 
 public class H3CParser {
     private String config;
