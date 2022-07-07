@@ -18,10 +18,9 @@ import java.util.regex.Pattern;
 import static pers.yozora7.lanfirewallmgr.utils.Utils.longMaskToShort;
 import static pers.yozora7.lanfirewallmgr.utils.Utils.wildcardToMask;
 
-public class HuaweiParser {
+public class HuaweiParser implements Parser {
     private String config;
     private Dao dao;
-    private static String split = "\\s+(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)";
     public void parse(String config, Dao dao) throws IOException, ParserConfigurationException, SAXException {
         this.config = config;
         this.dao = dao;
@@ -73,8 +72,10 @@ public class HuaweiParser {
                 data.setSetId(setId);
                 // address \d+ \d\S+ 0$
                 if (host.matcher(line).find()) {
-                    data.setStart(temp[2] + "/32");
-                    data.setEnd(temp[2] + "/32");
+                    data.setStart(temp[2]);
+                    data.setStartMask(32);
+                    data.setEnd(temp[2]);
+                    data.setEndMask(32);
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
@@ -82,8 +83,10 @@ public class HuaweiParser {
                 }
                 // address \d+ range \d\S+ \d\S+$
                 else if (range.matcher(line).find()) {
-                    data.setStart(temp[3] + "/32");
-                    data.setEnd(temp[4] + "/32");
+                    data.setStart(temp[3]);
+                    data.setStartMask(32);
+                    data.setEnd(temp[4]);
+                    data.setEndMask(32);
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
@@ -91,8 +94,10 @@ public class HuaweiParser {
                 }
                 // address \d+ \d\S+ mask \d+$
                 else if (mask.matcher(line).find()) {
-                    data.setStart(temp[2] + "/" + temp[4]);
-                    data.setEnd(temp[2] + "/" + temp[4]);
+                    data.setStart(temp[2]);
+                    data.setStartMask(32);
+                    data.setEnd(temp[2]);
+                    data.setEndMask(32);
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
@@ -100,8 +105,10 @@ public class HuaweiParser {
                 }
                 // address \d+ \d\S+ mask \d+.\S+$
                 else if (longMask.matcher(line).find()) {
-                    data.setStart(temp[2] + "/" + longMaskToShort(temp[4]));
-                    data.setEnd(temp[2] + "/" + longMaskToShort(temp[4]));
+                    data.setStart(temp[2]);
+                    data.setStartMask(longMaskToShort(temp[4]));
+                    data.setEnd(temp[2]);
+                    data.setEndMask(longMaskToShort(temp[4]));
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
@@ -109,8 +116,10 @@ public class HuaweiParser {
                 }
                 // address \d+ \d\S+ \d\S+$
                 else if (wildcard.matcher(line).find()) {
-                    data.setStart(temp[2] + "/" + wildcardToMask(temp[3]));
-                    data.setEnd(temp[2] + "/" + wildcardToMask(temp[3]));
+                    data.setStart(temp[2]);
+                    data.setStartMask(wildcardToMask(temp[3]));
+                    data.setEnd(temp[2]);
+                    data.setEndMask(wildcardToMask(temp[3]));
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
@@ -147,7 +156,6 @@ public class HuaweiParser {
                 continue;
             }
             if (flag) {
-                boolean test = line.matches(regex.get("content"));
                 // service \d+ protocol \S+ source-port \d+
                 if (content.matcher(line).find()) {
                     Service data = new Service();
@@ -155,17 +163,17 @@ public class HuaweiParser {
                     data.setProtocol(line.split("\\s+")[3]);
                     String[] srcPorts = line.split("source-port|destination-port")[1].replaceAll("\\s+", "").split("to");
                     String[] dstPorts = line.split("source-port|destination-port")[2].replaceAll("\\s+", "").split("to");
-                    data.setSrcStartPort(Integer.valueOf(srcPorts[0]));
-                    data.setDstStartPort(Integer.valueOf(dstPorts[0]));
+                    data.setSrcStartPort(Integer.parseInt(srcPorts[0]));
+                    data.setDstStartPort(Integer.parseInt(dstPorts[0]));
                     if (srcPorts.length > 1) {
-                        data.setSrcEndPort(Integer.valueOf(srcPorts[1]));
+                        data.setSrcEndPort(Integer.parseInt(srcPorts[1]));
                     } else {
-                        data.setSrcEndPort(Integer.valueOf(srcPorts[0]));
+                        data.setSrcEndPort(Integer.parseInt(srcPorts[0]));
                     }
                     if (dstPorts.length > 1) {
-                        data.setDstEndPort(Integer.valueOf(dstPorts[1]));
+                        data.setDstEndPort(Integer.parseInt(dstPorts[1]));
                     } else {
-                        data.setDstEndPort(Integer.valueOf(dstPorts[0]));
+                        data.setDstEndPort(Integer.parseInt(dstPorts[0]));
                     }
                     data.setId(count);
                     if (dao.addService(data) == count) {
@@ -278,8 +286,10 @@ public class HuaweiParser {
                 // source-address \d\S+ mask \d\S+$
                 else if (srcMask.matcher(line).find()) {
                     net = new Net();
-                    net.setStart(line.split("\\s+")[1] + "/" + longMaskToShort(line.split("\\s+")[3]));
+                    net.setStart(line.split("\\s+")[1]);
+                    net.setStartMask(longMaskToShort(line.split("\\s+")[3]));
                     net.setEnd(net.getStart());
+                    net.setEndMask(net.getStartMask());
                     net.setSetId(0);
                     net.setId(countNet);
                     int id = dao.addNet(net);
@@ -291,8 +301,10 @@ public class HuaweiParser {
                 // source-address range \d\S+ \d\S+$
                 else if (srcRange.matcher(line).find()) {
                     net = new Net();
-                    net.setStart(line.split("\\s+")[2] + "/32");
-                    net.setEnd(line.split("\\s+")[3] + "/32");
+                    net.setStart(line.split("\\s+")[2]);
+                    net.setStartMask(32);
+                    net.setEnd(line.split("\\s+")[3]);
+                    net.setEndMask(32);
                     net.setSetId(0);
                     net.setId(countNet);
                     int id = dao.addNet(net);
@@ -312,8 +324,10 @@ public class HuaweiParser {
                 // destination-address \d\S+ mask \d\S+$
                 else if (dstMask.matcher(line).find()) {
                     net = new Net();
-                    net.setStart(line.split("\\s+")[1] + "/" + longMaskToShort(line.split("\\s+")[3]));
+                    net.setStart(line.split("\\s+")[1]);
+                    net.setStartMask(longMaskToShort(line.split("\\s+")[3]));
                     net.setEnd(net.getStart());
+                    net.setEndMask(net.getStartMask());
                     net.setSetId(0);
                     net.setId(countNet);
                     int id = dao.addNet(net);
@@ -325,8 +339,10 @@ public class HuaweiParser {
                 // destination-address \d\S+ range \d\S+$
                 else if (dstRange.matcher(line).find()) {
                     net = new Net();
-                    net.setStart(line.split("\\s+")[2] + "/32");
-                    net.setEnd(line.split("\\s+")[3] + "/32");
+                    net.setStart(line.split("\\s+")[2]);
+                    net.setStartMask(32);
+                    net.setEnd(line.split("\\s+")[3]);
+                    net.setEndMask(32);
                     net.setSetId(0);
                     net.setId(countNet);
                     int id = dao.addNet(net);
@@ -371,13 +387,13 @@ public class HuaweiParser {
                     String protocol = line.split("\\s+")[2];
                     service.setProtocol(protocol);
                     String[] dstPorts = line.split("destination-port")[1].replaceAll("\\s+","").split("to");
-                    service.setDstStartPort(Integer.valueOf(dstPorts[0]));
+                    service.setDstStartPort(Integer.parseInt(dstPorts[0]));
                     if (dstPorts.length > 1) {
-                        service.setDstEndPort(Integer.valueOf(dstPorts[1]));
+                        service.setDstEndPort(Integer.parseInt(dstPorts[1]));
                         // 服务命名 协议_目标端口
                         service.setName(protocol + "_" + dstPorts[0] + "_" + dstPorts[1]);
                     } else {
-                        service.setDstEndPort(Integer.valueOf(dstPorts[0]));
+                        service.setDstEndPort(Integer.parseInt(dstPorts[0]));
                         service.setName(protocol + "_" + dstPorts[0]);
                     }
                     service.setId(countService);

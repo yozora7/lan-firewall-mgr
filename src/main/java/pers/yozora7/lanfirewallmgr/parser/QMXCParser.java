@@ -15,10 +15,9 @@ import java.io.*;
 import java.util.*;
 import java.util.regex.Pattern;
 
-public class QMXCParser {
+public class QMXCParser implements Parser {
     private String config;
     private Dao dao;
-    private static String split = "\\s+(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)";
     public void parse(String config, Dao dao) throws IOException, ParserConfigurationException, SAXException {
         this.config = config;
         this.dao = dao;
@@ -73,8 +72,10 @@ public class QMXCParser {
             else if (host.matcher(line).find()) {
                 Net data = new Net();
                 data.setSetId(setId);
-                data.setStart(temp[1] + "/32");
-                data.setEnd(temp[1] + "/32");
+                data.setStart(temp[1]);
+                data.setStartMask(32);
+                data.setEnd(temp[1]);
+                data.setEndMask(32);
                 data.setId(count);
                 if (dao.addNet(data) == count) {
                     count++;
@@ -84,8 +85,10 @@ public class QMXCParser {
             else if (range.matcher(line).find()) {
                 Net data = new Net();
                 data.setSetId(setId);
-                data.setStart(temp[1] + "/32");
-                data.setEnd(temp[2] + "/32");
+                data.setStart(temp[1]);
+                data.setStartMask(32);
+                data.setEnd(temp[2]);
+                data.setEndMask(32);
                 data.setId(count);
                 if (dao.addNet(data) == count) {
                     count++;
@@ -123,17 +126,17 @@ public class QMXCParser {
                 data.setProtocol(protocol);
                 String[] srcPorts = line.split("dest|source")[2].trim().split("\\s+");
                 String[] dstPorts = line.split("dest|source")[1].trim().split("\\s+");
-                data.setSrcStartPort(Integer.valueOf(srcPorts[0]));
-                data.setDstStartPort(Integer.valueOf(dstPorts[0]));
+                data.setSrcStartPort(Integer.parseInt(srcPorts[0]));
+                data.setDstStartPort(Integer.parseInt(dstPorts[0]));
                 if (srcPorts.length > 1) {
-                    data.setSrcEndPort(Integer.valueOf(srcPorts[1]));
+                    data.setSrcEndPort(Integer.parseInt(srcPorts[1]));
                 } else {
-                    data.setSrcEndPort(Integer.valueOf(srcPorts[0]));
+                    data.setSrcEndPort(Integer.parseInt(srcPorts[0]));
                 }
                 if (dstPorts.length > 1) {
-                    data.setDstEndPort(Integer.valueOf(dstPorts[1]));
+                    data.setDstEndPort(Integer.parseInt(dstPorts[1]));
                 } else {
-                    data.setDstEndPort(Integer.valueOf(dstPorts[0]));
+                    data.setDstEndPort(Integer.parseInt(dstPorts[0]));
                 }
                 data.setId(count);
                 if (dao.addService(data) == count) {
@@ -148,9 +151,9 @@ public class QMXCParser {
                 data.setProtocol(protocol);
                 data.setSrcStartPort(0);
                 data.setSrcEndPort(0);
-                data.setDstStartPort(Integer.valueOf(line.split("\\s+")[2]));
+                data.setDstStartPort(Integer.parseInt(line.split("\\s+")[2]));
                 if (line.split("\\s+").length > 3) {
-                    data.setDstEndPort(Integer.valueOf(line.split("\\s+")[3]));
+                    data.setDstEndPort(Integer.parseInt(line.split("\\s+")[3]));
                 } else {
                     data.setDstEndPort(data.getDstStartPort());
                 }
@@ -167,9 +170,9 @@ public class QMXCParser {
                 data.setProtocol(protocol);
                 data.setDstStartPort(0);
                 data.setDstEndPort(0);
-                data.setSrcStartPort(Integer.valueOf(line.split("\\s+")[2]));
+                data.setSrcStartPort(Integer.parseInt(line.split("\\s+")[2]));
                 if (line.split("\\s+").length > 3) {
-                    data.setSrcEndPort(Integer.valueOf(line.split("\\s+")[3]));
+                    data.setSrcEndPort(Integer.parseInt(line.split("\\s+")[3]));
                 } else {
                     data.setSrcEndPort(data.getSrcStartPort());
                 }

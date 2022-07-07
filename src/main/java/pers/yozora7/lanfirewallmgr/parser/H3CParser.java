@@ -21,11 +21,9 @@ import java.util.regex.Pattern;
 
 import static pers.yozora7.lanfirewallmgr.utils.Utils.longMaskToShort;
 
-public class H3CParser {
+public class H3CParser implements Parser {
     private String config;
     private Dao dao;
-    private static String split = "\\s+(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)";
-
     public void parse(String config, Dao dao) throws IOException, ParserConfigurationException, SAXException {
         this.config = config;
         this.dao = dao;
@@ -33,7 +31,6 @@ public class H3CParser {
         parseServiceSet();
         parseRule();
     }
-
     private List<Map<String, String>> getRegex(String nodeName) throws ParserConfigurationException, SAXException, IOException {
         SAXParserFactory factory = SAXParserFactory.newInstance();
         SAXParser parse = factory.newSAXParser();
@@ -43,7 +40,6 @@ public class H3CParser {
         xmlReader.parse("src/main/resources/H3CRegex.xml");
         return handler.getList();
     }
-
     private void parseNetSet() throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         int count = dao.count("net");
@@ -74,8 +70,10 @@ public class H3CParser {
                 data.setSetId(setId);
                 // \d+ network host address \d\S+
                 if (host.matcher(line).find()) {
-                    data.setStart(temp[4] + "/32");
-                    data.setEnd(temp[4] + "/32");
+                    data.setStart(temp[4]);
+                    data.setStartMask(32);
+                    data.setEnd(temp[4]);
+                    data.setEndMask(32);
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
@@ -83,8 +81,10 @@ public class H3CParser {
                 }
                 // \d+ network range \d\S+ \d\S+$
                 else if (range.matcher(line).find()) {
-                    data.setStart(temp[3] + "/32");
-                    data.setEnd(temp[4] + "/32");
+                    data.setStart(temp[3]);
+                    data.setStartMask(32);
+                    data.setEnd(temp[4]);
+                    data.setEndMask(32);
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
@@ -92,8 +92,10 @@ public class H3CParser {
                 }
                 // \d+ network subnet \S+ \d\S+$
                 else if (subnet.matcher(line).find()) {
-                    data.setStart(temp[3] + "/" + longMaskToShort(temp[4]));
-                    data.setEnd(temp[3] + "/" + longMaskToShort(temp[4]));
+                    data.setStart(temp[3]);
+                    data.setStartMask(longMaskToShort(temp[4]));
+                    data.setEnd(temp[3]);
+                    data.setEndMask(longMaskToShort(temp[4]));
                     data.setId(count);
                     if (dao.addNet(data) == count) {
                         count++;
@@ -106,7 +108,6 @@ public class H3CParser {
         }
         reader.close();
     }
-
     private void parseServiceSet() throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         String name = null;
@@ -134,24 +135,30 @@ public class H3CParser {
                 continue;
             }
             if (flag) {
+                Service data = new Service();
+                data.setName(name);
                 // \d+ service \S+ destination \D+ \d+$
                 if (eq.matcher(line).find()) {
-                    Service data = new Service();
+
                     String temp = line.split("\\s+")[4];
                     String protocol = line.split("\\s+")[2];
-                    data.setName(name);
+
                     data.setProtocol(protocol);
                     data.setSrcStartPort(0);
                     data.setSrcEndPort(65535);
-                    if (temp.equals("eq")) {
-                        data.setDstStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                        data.setDstEndPort(data.getDstStartPort());
-                    } else if (temp.equals("lt")) {
-                        data.setDstStartPort(0);
-                        data.setDstEndPort(Integer.valueOf(line.split("\\s+")[5]));
-                    } else if (temp.equals("gt")) {
-                        data.setDstStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                        data.setDstEndPort(65535);
+                    switch (temp) {
+                        case "eq":
+                            data.setDstStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                            data.setDstEndPort(data.getDstStartPort());
+                            break;
+                        case "lt":
+                            data.setDstStartPort(0);
+                            data.setDstEndPort(Integer.parseInt(line.split("\\s+")[5]));
+                            break;
+                        case "gt":
+                            data.setDstStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                            data.setDstEndPort(65535);
+                            break;
                     }
                     data.setId(count);
                     if (dao.addService(data) == count) {
@@ -160,14 +167,12 @@ public class H3CParser {
                 }
                 // \d+ service \S+ destination range \d+ \d+$
                 else if (range.matcher(line).find()) {
-                    Service data = new Service();
                     String protocol = line.split("\\s+")[2];
-                    data.setName(name);
                     data.setProtocol(protocol);
                     data.setSrcStartPort(0);
                     data.setSrcEndPort(65535);
-                    data.setDstStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                    data.setDstEndPort(Integer.valueOf(line.split("\\s+")[6]));
+                    data.setDstStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                    data.setDstEndPort(Integer.parseInt(line.split("\\s+")[6]));
                     data.setId(count);
                     if (dao.addService(data) == count) {
                         count++;
@@ -175,31 +180,37 @@ public class H3CParser {
                 }
                 // \d+ service \S+ source \D+ \d+ destination \D+ \d+$
                 else if (bothEq.matcher(line).find()) {
-                    Service data = new Service();
                     String protocol = line.split("\\s+")[2];
                     String temp1 = line.split("\\s+")[4];
                     String temp2 = line.split("\\s+")[7];
-                    data.setName(name);
                     data.setProtocol(protocol);
-                    if (temp1.equals("eq")) {
-                        data.setSrcStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                        data.setSrcEndPort(data.getDstStartPort());
-                    } else if (temp1.equals("lt")) {
-                        data.setSrcStartPort(0);
-                        data.setSrcEndPort(Integer.valueOf(line.split("\\s+")[5]));
-                    } else if (temp1.equals("gt")) {
-                        data.setSrcStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                        data.setSrcEndPort(65535);
+                    switch (temp1) {
+                        case "eq":
+                            data.setSrcStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                            data.setSrcEndPort(data.getDstStartPort());
+                            break;
+                        case "lt":
+                            data.setSrcStartPort(0);
+                            data.setSrcEndPort(Integer.parseInt(line.split("\\s+")[5]));
+                            break;
+                        case "gt":
+                            data.setSrcStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                            data.setSrcEndPort(65535);
+                            break;
                     }
-                    if (temp2.equals("eq")) {
-                        data.setDstStartPort(Integer.valueOf(line.split("\\s+")[8]));
-                        data.setDstEndPort(data.getDstStartPort());
-                    } else if (temp2.equals("lt")) {
-                        data.setDstStartPort(0);
-                        data.setDstEndPort(Integer.valueOf(line.split("\\s+")[8]));
-                    } else if (temp2.equals("gt")) {
-                        data.setDstStartPort(Integer.valueOf(line.split("\\s+")[8]));
-                        data.setDstEndPort(65535);
+                    switch (temp2) {
+                        case "eq":
+                            data.setDstStartPort(Integer.parseInt(line.split("\\s+")[8]));
+                            data.setDstEndPort(data.getDstStartPort());
+                            break;
+                        case "lt":
+                            data.setDstStartPort(0);
+                            data.setDstEndPort(Integer.parseInt(line.split("\\s+")[8]));
+                            break;
+                        case "gt":
+                            data.setDstStartPort(Integer.parseInt(line.split("\\s+")[8]));
+                            data.setDstEndPort(65535);
+                            break;
                     }
                     data.setId(count);
                     if (dao.addService(data) == count) {
@@ -208,14 +219,12 @@ public class H3CParser {
                 }
                 // \d+ service \S+ source range \d+ \d+ destination range \d+ \d+$
                 else if (bothRange.matcher(line).find()) {
-                    Service data = new Service();
                     String protocol = line.split("\\s+")[2];
-                    data.setName(name);
                     data.setProtocol(protocol);
-                    data.setSrcStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                    data.setSrcEndPort(Integer.valueOf(line.split("\\s+")[6]));
-                    data.setDstStartPort(Integer.valueOf(line.split("\\s+")[9]));
-                    data.setDstEndPort(Integer.valueOf(line.split("\\s+")[10]));
+                    data.setSrcStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                    data.setSrcEndPort(Integer.parseInt(line.split("\\s+")[6]));
+                    data.setDstStartPort(Integer.parseInt(line.split("\\s+")[9]));
+                    data.setDstEndPort(Integer.parseInt(line.split("\\s+")[10]));
                     data.setId(count);
                     if (dao.addService(data) == count) {
                         count++;
@@ -223,22 +232,24 @@ public class H3CParser {
                 }
                 // \d+ service \S+ source range \d+ \d+ destination \D+ \d+$
                 else if (rangeEq.matcher(line).find()) {
-                    Service data = new Service();
                     String protocol = line.split("\\s+")[2];
                     String temp = line.split("\\s+")[8];
-                    data.setName(name);
                     data.setProtocol(protocol);
-                    data.setSrcStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                    data.setSrcEndPort(Integer.valueOf(line.split("\\s+")[6]));
-                    if (temp.equals("eq")) {
-                        data.setDstStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                        data.setDstEndPort(data.getDstStartPort());
-                    } else if (temp.equals("lt")) {
-                        data.setDstStartPort(0);
-                        data.setDstEndPort(Integer.valueOf(line.split("\\s+")[5]));
-                    } else if (temp.equals("gt")) {
-                        data.setDstStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                        data.setDstEndPort(65535);
+                    data.setSrcStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                    data.setSrcEndPort(Integer.parseInt(line.split("\\s+")[6]));
+                    switch (temp) {
+                        case "eq":
+                            data.setDstStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                            data.setDstEndPort(data.getDstStartPort());
+                            break;
+                        case "lt":
+                            data.setDstStartPort(0);
+                            data.setDstEndPort(Integer.parseInt(line.split("\\s+")[5]));
+                            break;
+                        case "gt":
+                            data.setDstStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                            data.setDstEndPort(65535);
+                            break;
                     }
                     data.setId(count);
                     if (dao.addService(data) == count) {
@@ -247,23 +258,25 @@ public class H3CParser {
                 }
                 // \d+ service \S+ source \D+ \d+ destination range \d+ \d+$
                 else if (eqRange.matcher(line).find()) {
-                    Service data = new Service();
                     String protocol = line.split("\\s+")[2];
                     String temp = line.split("\\s+")[4];
-                    data.setName(name);
                     data.setProtocol(protocol);
-                    if (temp.equals("eq")) {
-                        data.setSrcStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                        data.setSrcEndPort(data.getDstStartPort());
-                    } else if (temp.equals("lt")) {
-                        data.setSrcStartPort(0);
-                        data.setSrcEndPort(Integer.valueOf(line.split("\\s+")[5]));
-                    } else if (temp.equals("gt")) {
-                        data.setSrcStartPort(Integer.valueOf(line.split("\\s+")[5]));
-                        data.setSrcEndPort(65535);
+                    switch (temp) {
+                        case "eq":
+                            data.setSrcStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                            data.setSrcEndPort(data.getDstStartPort());
+                            break;
+                        case "lt":
+                            data.setSrcStartPort(0);
+                            data.setSrcEndPort(Integer.parseInt(line.split("\\s+")[5]));
+                            break;
+                        case "gt":
+                            data.setSrcStartPort(Integer.parseInt(line.split("\\s+")[5]));
+                            data.setSrcEndPort(65535);
+                            break;
                     }
-                    data.setDstStartPort(Integer.valueOf(line.split("\\s+")[8]));
-                    data.setDstEndPort(Integer.valueOf(line.split("\\s+")[9]));
+                    data.setDstStartPort(Integer.parseInt(line.split("\\s+")[8]));
+                    data.setDstEndPort(Integer.parseInt(line.split("\\s+")[9]));
                     data.setId(count);
                     if (dao.addService(data) == count) {
                         count++;
@@ -275,7 +288,6 @@ public class H3CParser {
         }
         reader.close();
     }
-
     private void parseRule() throws IOException, ParserConfigurationException, SAXException {
         Rule data = null;
         Boolean flag = false;

@@ -13,8 +13,10 @@ public class Net {
     private long id;
     // 起始地址
     private String start;
+    private int startMask;
     // 结束地址
     private String end;
+    private int endMask;
     // 地址集
     private int setId;
 }

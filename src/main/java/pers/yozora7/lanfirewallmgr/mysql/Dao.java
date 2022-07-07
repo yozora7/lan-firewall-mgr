@@ -35,10 +35,12 @@ public class Dao {
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS `net` (" +
                 "`id` INT(10) NOT NULL AUTO_INCREMENT," +
                 "`start` VARCHAR(50)," +
+                "`start_mask` INT(2) DEFAULT 32," +
                 "`end` VARCHAR(50)," +
+                "`end_mask` INT(2) DEFAULT 32," +
                 "`set_id` INT(10)," +
                 "PRIMARY KEY (`id`)," +
-                "UNIQUE KEY IDX_ALL(`start`, `end`, `set_id`)," +
+                "UNIQUE KEY IDX_ALL(`start`, `start_mask`, `end`, `end_mask`, `set_id`)," +
                 "KEY IDX_SET_ID(`set_id`)" +
         ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;");
         // service(id,name,protocol,src_start_port,dst_start_port,src_end_port,dst_end_port,group)
@@ -112,12 +114,14 @@ public class Dao {
         else {
             KeyHolder keyHolder = new GeneratedKeyHolder();
             jdbcTemplate.execute("USE " + database);
-            String insert = "INSERT INTO `net` (`start`, `end`, `set_id`) VALUES (?, ?, ?);";
+            String insert = "INSERT INTO `net` (`start`, `start_mask`, `end`, `end_mask`, `set_id`) VALUES (?, ?, ?, ?, ?);";
             PreparedStatementCreator creator = connection -> {
                 PreparedStatement ps = connection.prepareStatement(insert, Statement.RETURN_GENERATED_KEYS);
                 ps.setString(1, data.getStart());
-                ps.setString(2, data.getEnd());
-                ps.setInt(3, data.getSetId());
+                ps.setInt(2, data.getStartMask());
+                ps.setString(3, data.getEnd());
+                ps.setInt(4, data.getEndMask());
+                ps.setInt(5, data.getSetId());
                 return ps;
             };
             jdbcTemplate.update(creator, keyHolder);
@@ -226,7 +230,7 @@ public class Dao {
     }
 
     public int count(String table) {
-        String query = "SELECT COUNT(1) FROM " + table + ";";
+        String query = "SELECT COUNT(*) FROM " + table + ";";
         jdbcTemplate.execute("USE " + database);
         return jdbcTemplate.query(query, rs -> rs.next() ? rs.getInt(1) : 0);
     }
