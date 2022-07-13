@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="pers.yozora7.lanfirewallmgr.mybatis.SetDao">
+    <!-- create table -->
+    <update id="createTable" parameterType="string">
+        CREATE TABLE IF NOT EXISTS ${db}.set (
+        id INT(10) NOT NULL AUTO_INCREMENT,
+        name VARCHAR(255),
+        PRIMARY KEY (id),
+        UNIQUE KEY IDX_NAME(name)) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4;
+    </update>
+
+    <!-- select id -->
+    <select id="queryId" parameterType="map" resultType="int">
+        SELECT id FROM ${db}.set WHERE name = #{name} LIMIT 1;
+    </select>
+
+    <!-- count -->
+    <select id="count" parameterType="string" resultType="int">
+        SELECT COUNT(*) FROM ${db}.set;
+    </select>
+
+    <!-- insert -->
+    <update id="insert" parameterType="map" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO ${db}.set (name) VALUES (#{name});
+    </update>
+</mapper>

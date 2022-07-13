@@ -6,6 +6,7 @@ import pers.yozora7.lanfirewallmgr.entity.Net;
 import pers.yozora7.lanfirewallmgr.entity.Rule;
 import pers.yozora7.lanfirewallmgr.entity.Service;
 import pers.yozora7.lanfirewallmgr.mysql.Dao;
+import pers.yozora7.lanfirewallmgr.utils.Utils;
 import pers.yozora7.lanfirewallmgr.xml.SAXParserHandler;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -406,14 +407,14 @@ public class HuaweiParser implements Parser {
                 // action (".*?"|\S+)
                 else if (action.matcher(line).find()) {
                     flag = false;
-                    data.setSrcSetIds(srcSetIds);
-                    data.setSrcNetIds(srcNetIds);
-                    data.setSrcZoneIds(srcZoneIds);
-                    data.setDstSetIds(dstSetIds);
-                    data.setDstNetIds(dstNetIds);
-                    data.setDstZoneIds(dstZoneIds);
-                    data.setServiceIds(serviceIds);
-                    data.setServiceGroups(serviceGroups);
+                    data.setSrcSetIds(Utils.setToString(srcSetIds, Integer.class));
+                    data.setSrcNetIds(Utils.setToString(srcNetIds, Integer.class));
+                    data.setSrcZoneIds(Utils.setToString(srcZoneIds, Integer.class));
+                    data.setDstSetIds(Utils.setToString(dstSetIds, Integer.class));
+                    data.setDstNetIds(Utils.setToString(dstNetIds, Integer.class));
+                    data.setDstZoneIds(Utils.setToString(dstZoneIds, Integer.class));
+                    data.setServiceIds(Utils.setToString(serviceIds, Integer.class));
+                    data.setServiceGroups(Utils.setToString(serviceGroups, String.class));
                     data.setAction(line.replace("action","").trim());
                     data.setId(count);
                     if (dao.addRule(data) == count) {

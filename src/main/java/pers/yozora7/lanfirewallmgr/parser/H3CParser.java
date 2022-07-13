@@ -6,6 +6,7 @@ import pers.yozora7.lanfirewallmgr.entity.Net;
 import pers.yozora7.lanfirewallmgr.entity.Rule;
 import pers.yozora7.lanfirewallmgr.entity.Service;
 import pers.yozora7.lanfirewallmgr.mysql.Dao;
+import pers.yozora7.lanfirewallmgr.utils.Utils;
 import pers.yozora7.lanfirewallmgr.xml.SAXParserHandler;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -292,6 +293,7 @@ public class H3CParser implements Parser {
         Rule data = null;
         Boolean flag = false;
         int count = dao.count("rule");
+        int countNet = dao.count("net");
         int countService = dao.count("service");
         HashSet<Integer> srcSetIds = null;
         HashSet<Integer> dstSetIds = null;
@@ -305,8 +307,12 @@ public class H3CParser implements Parser {
         Pattern action = Pattern.compile(regex.get("action"));
         Pattern srcZone = Pattern.compile(regex.get("src-zone"));
         Pattern srcSet = Pattern.compile(regex.get("src-set"));
+        Pattern srcHost = Pattern.compile(regex.get("src-host"));
+        Pattern srcSubnet = Pattern.compile(regex.get("src-subnet"));
         Pattern dstZone = Pattern.compile(regex.get("dst-zone"));
         Pattern dstSet = Pattern.compile(regex.get("dst-set"));
+        Pattern dstHost = Pattern.compile(regex.get("dst-host"));
+        Pattern dstSubnet = Pattern.compile(regex.get("dst-subnet"));
         Pattern serviceName = Pattern.compile(regex.get("service-name"));
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
@@ -319,13 +325,13 @@ public class H3CParser implements Parser {
             // rule \d+ name (".*?"|\S+)$
             if (header.matcher(line).find()) {
                 if (flag && data != null) {
-                    data.setSrcSetIds(srcSetIds);
-                    data.setSrcNetIds(srcNetIds);
-                    data.setDstSetIds(dstSetIds);
-                    data.setDstNetIds(dstNetIds);
-                    data.setSrcZoneIds(srcZoneIds);
-                    data.setDstZoneIds(dstZoneIds);
-                    data.setServiceIds(serviceIds);
+                    data.setSrcSetIds(Utils.setToString(srcSetIds, Integer.class));
+                    data.setSrcNetIds(Utils.setToString(srcNetIds, Integer.class));
+                    data.setSrcZoneIds(Utils.setToString(srcZoneIds, Integer.class));
+                    data.setDstSetIds(Utils.setToString(dstSetIds, Integer.class));
+                    data.setDstNetIds(Utils.setToString(dstNetIds, Integer.class));
+                    data.setDstZoneIds(Utils.setToString(dstZoneIds, Integer.class));
+                    data.setServiceIds(Utils.setToString(serviceIds, Integer.class));
                     data.setId(count);
                     if (dao.addRule(data) == count) {
                         count++;
@@ -355,7 +361,36 @@ public class H3CParser implements Parser {
                 else if (srcSet.matcher(line).find()) {
                     srcSetIds.add(dao.addSet(line.split(split)[1].replace("\"","")));
                 }
-
+                // source-ip-host (".*?"|\S+)$
+                else if (srcHost.matcher(line).find()) {
+                    Net net = new Net();
+                    net.setStart(line.split(split)[1]);
+                    net.setStartMask(32);
+                    net.setEnd(net.getStart());
+                    net.setEndMask(32);
+                    net.setSetId(0);
+                    net.setId(countNet);
+                    int id = dao.addNet(net);
+                    srcNetIds.add(id);
+                    if (id == countNet) {
+                        countNet++;
+                    }
+                }
+                // source-ip-subnet (".*?"|\S+) (".*?"|\S+)$
+                else if (srcSubnet.matcher(line).find()) {
+                    Net net = new Net();
+                    net.setStart(line.split(split)[1]);
+                    net.setStartMask(Utils.longMaskToShort(line.split(split)[2]));
+                    net.setEnd(net.getStart());
+                    net.setEndMask(net.getStartMask());
+                    net.setSetId(0);
+                    net.setId(countNet);
+                    int id = dao.addNet(net);
+                    srcNetIds.add(id);
+                    if (id == countNet) {
+                        countNet++;
+                    }
+                }
                 // destination-zone (".*?"|\S+)$
                 else if (dstZone.matcher(line).find()) {
                     dstZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
@@ -363,6 +398,36 @@ public class H3CParser implements Parser {
                 // destination-ip (".*?"|\S+)$
                 else if (dstSet.matcher(line).find()) {
                     dstSetIds.add(dao.addSet(line.split(split)[1].replace("\"","")));
+                }
+                // destination-ip-host (".*?"|\S+)$
+                else if (dstHost.matcher(line).find()) {
+                    Net net = new Net();
+                    net.setStart(line.split(split)[1]);
+                    net.setStartMask(32);
+                    net.setEnd(net.getStart());
+                    net.setEndMask(32);
+                    net.setSetId(0);
+                    net.setId(countNet);
+                    int id = dao.addNet(net);
+                    dstNetIds.add(id);
+                    if (id == countNet) {
+                        countNet++;
+                    }
+                }
+                // destination-ip-subnet (".*?"|\S+) (".*?"|\S+)$
+                else if (dstSubnet.matcher(line).find()) {
+                    Net net = new Net();
+                    net.setStart(line.split(split)[1]);
+                    net.setStartMask(Utils.longMaskToShort(line.split(split)[2]));
+                    net.setEnd(net.getStart());
+                    net.setEndMask(net.getStartMask());
+                    net.setSetId(0);
+                    net.setId(countNet);
+                    int id = dao.addNet(net);
+                    dstNetIds.add(id);
+                    if (id == countNet) {
+                        countNet++;
+                    }
                 }
                 // service (".*?"|\S+)$
                 else if (serviceName.matcher(line).find()) {
@@ -378,13 +443,13 @@ public class H3CParser implements Parser {
                 }
                 else if (line.equals("#")) {
                     flag = false;
-                    data.setSrcSetIds(srcSetIds);
-                    data.setSrcNetIds(srcNetIds);
-                    data.setDstSetIds(dstSetIds);
-                    data.setDstNetIds(dstNetIds);
-                    data.setSrcZoneIds(srcZoneIds);
-                    data.setDstZoneIds(dstZoneIds);
-                    data.setServiceIds(serviceIds);
+                    data.setSrcSetIds(Utils.setToString(srcSetIds, Integer.class));
+                    data.setSrcNetIds(Utils.setToString(srcNetIds, Integer.class));
+                    data.setSrcZoneIds(Utils.setToString(srcZoneIds, Integer.class));
+                    data.setDstSetIds(Utils.setToString(dstSetIds, Integer.class));
+                    data.setDstNetIds(Utils.setToString(dstNetIds, Integer.class));
+                    data.setDstZoneIds(Utils.setToString(dstZoneIds, Integer.class));
+                    data.setServiceIds(Utils.setToString(serviceIds, Integer.class));
                     data.setId(count);
                     if (dao.addRule(data) == count) {
                         count++;

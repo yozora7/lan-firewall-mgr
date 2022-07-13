@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="pers.yozora7.lanfirewallmgr.mybatis.NetDao">
+    <!-- create database -->
+    <update id="createDatabase" parameterType="string">
+        CREATE DATABASE IF NOT EXISTS ${db};
+    </update>
+
+    <!-- create table -->
+    <update id="createTable" parameterType="string">
+        CREATE TABLE IF NOT EXISTS ${db}.net (
+        id INT(10) NOT NULL AUTO_INCREMENT,
+        start VARCHAR(50),
+        start_mask INT(2) DEFAULT 32,
+        end VARCHAR(50),
+        end_mask INT(2) DEFAULT 32,
+        set_id INT(10),
+        PRIMARY KEY (id),
+        UNIQUE KEY IDX_ALL(start, start_mask, end, end_mask, set_id),
+        KEY IDX_SET_ID(set_id)) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4;
+    </update>
+
+    <!-- select id -->
+    <select id="queryId" parameterType="map" resultType="int">
+        SELECT id FROM ${db}.net WHERE start = #{net.start} AND start_mask = #{net.startMask}
+        AND end = #{net.end}
+        AND end_mask =  #{net.endMask}
+        AND set_id = #{net.setId}
+        LIMIT 1;
+    </select>
+
+    <!-- count -->
+    <select id="count" parameterType="string" resultType="int">
+        SELECT COUNT(*) FROM ${db}.net;
+    </select>
+
+    <!-- insert -->
+    <update id="insert" parameterType="map" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO ${db}.net (start, start_mask, end, end_mask, set_id)
+        VALUES (#{net.start}, #{net.startMask}, #{net.end}, #{net.endMask}, #{net.setId});
+    </update>
+
+</mapper>

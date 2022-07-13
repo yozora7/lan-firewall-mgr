@@ -10,7 +10,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Net {
-    private long id;
+    private int id;
     // 起始地址
     private String start;
     private int startMask;

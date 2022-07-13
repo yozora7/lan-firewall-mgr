@@ -7,6 +7,7 @@ import pers.yozora7.lanfirewallmgr.entity.Rule;
 import pers.yozora7.lanfirewallmgr.entity.Service;
 import pers.yozora7.lanfirewallmgr.mysql.Dao;
 import pers.yozora7.lanfirewallmgr.xml.SAXParserHandler;
+import pers.yozora7.lanfirewallmgr.utils.Utils;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -267,13 +268,13 @@ public class QMXCParser implements Parser {
                 }
                 // app (".*?"|\S+)$
                 else if (app.matcher(line).find()) {
-                    data.setSrcSetIds(srcSetIds);
-                    data.setSrcNetIds(srcNetIds);
-                    data.setDstSetIds(dstSetIds);
-                    data.setDstNetIds(dstNetIds);
-                    data.setSrcZoneIds(srcZoneIds);
-                    data.setDstZoneIds(dstZoneIds);
-                    data.setServiceIds(serviceIds);
+                    data.setSrcSetIds(Utils.setToString(srcSetIds, Integer.class));
+                    data.setSrcNetIds(Utils.setToString(srcNetIds, Integer.class));
+                    data.setSrcZoneIds(Utils.setToString(srcZoneIds, Integer.class));
+                    data.setDstSetIds(Utils.setToString(dstSetIds, Integer.class));
+                    data.setDstNetIds(Utils.setToString(dstNetIds, Integer.class));
+                    data.setDstZoneIds(Utils.setToString(dstZoneIds, Integer.class));
+                    data.setServiceIds(Utils.setToString(serviceIds, Integer.class));
                     data.setId(count);
                     if (data.getName() == null) {
                         data.setName("policy_" + policyNum);

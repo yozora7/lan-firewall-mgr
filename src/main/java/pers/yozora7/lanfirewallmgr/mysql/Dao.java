@@ -17,20 +17,22 @@ import static pers.yozora7.lanfirewallmgr.utils.Utils.setToString;
 public class Dao {
     @Autowired
     private JdbcTemplate jdbcTemplate;
-    private String database;
+    private final String database;
 
     public Dao(JdbcTemplate template, String database) {
         this.database = database;
         this.jdbcTemplate = template;
         jdbcTemplate.execute("CREATE DATABASE IF NOT EXISTS " + database);
         jdbcTemplate.execute("USE " + database);
+
         // set(id,name)
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS `set` ( " +
                 "`id` INT(10) NOT NULL AUTO_INCREMENT," +
                 "`name` VARCHAR(255), " +
                 "PRIMARY KEY (`id`), " +
                 "UNIQUE KEY IDX_NAME(`name`) " +
-                ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;");
+                ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4;");
+
         // net(id,start,end,set_id)
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS `net` (" +
                 "`id` INT(10) NOT NULL AUTO_INCREMENT," +
@@ -42,7 +44,8 @@ public class Dao {
                 "PRIMARY KEY (`id`)," +
                 "UNIQUE KEY IDX_ALL(`start`, `start_mask`, `end`, `end_mask`, `set_id`)," +
                 "KEY IDX_SET_ID(`set_id`)" +
-        ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;");
+        ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4;");
+
         // service(id,name,protocol,src_start_port,dst_start_port,src_end_port,dst_end_port,group)
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS `service` ( " +
                 "`id` INT(10) NOT NULL AUTO_INCREMENT," +
@@ -56,14 +59,16 @@ public class Dao {
                 "PRIMARY KEY (`id`), " +
                 "UNIQUE KEY IDX_NAME(`name`), " +
                 "KEY IDX_GROUP(`group`)" +
-                ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;");
+                ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4;");
+
         // zone(id,name)
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS `zone` ( " +
                 "`id` INT(10) NOT NULL AUTO_INCREMENT," +
                 "`name` VARCHAR(255), " +
                 "PRIMARY KEY (`id`), " +
                 "UNIQUE KEY IDX_NAME(`name`) " +
-                ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;");
+                ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4;");
+
         // rule(id,name,src_zone,dst_zone,src_net_id,dst_net_id,src_set_id,dst_set_id,service_id,action)
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS `rule` ( " +
                 "`id` INT(10) NOT NULL AUTO_INCREMENT, " +
@@ -104,8 +109,10 @@ public class Dao {
 
     public int addNet(Net data) {
         String query = "SELECT `id` FROM `net` WHERE `start` = '" + data.getStart()
-                + "' AND `end` = '" + data.getEnd()
-                + "' AND `set_id` = '" + data.getSetId() + "' LIMIT 1;";
+                + "' AND `start_mask` = " + data.getStartMask()
+                + " AND `end` = '" + data.getEnd()
+                + "' AND `end_mask` = " + data.getEndMask()
+                + " AND `set_id` = '" + data.getSetId() + "' LIMIT 1;";
         jdbcTemplate.execute("USE " + database);
         int id = jdbcTemplate.query(query, rs -> rs.next() ? rs.getInt(1) : 0);
         if (id != 0) {
@@ -203,18 +210,19 @@ public class Dao {
             KeyHolder keyHolder = new GeneratedKeyHolder();
             jdbcTemplate.execute("USE " + database);
             String insert = "INSERT INTO `rule` " +
-                    "(`name`, `src_zone_id`, `dst_zone_id`, `src_net_id`, `dst_net_id`, `src_set_id`, `dst_set_id`, `service_id`, `action`) " +
+                    "(`name`, `src_zone_id`, `dst_zone_id`, `src_net_id`, `dst_net_id`, `src_set_id`, " +
+                    "`dst_set_id`, `service_id`, `action`) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
             PreparedStatementCreator creator = connection -> {
                 PreparedStatement ps = connection.prepareStatement(insert, Statement.RETURN_GENERATED_KEYS);
                 ps.setString(1, data.getName());
-                ps.setString(2, setToString(data.getSrcZoneIds(), Integer.class));
-                ps.setString(3, setToString(data.getDstZoneIds(), Integer.class));
-                ps.setString(4, setToString(data.getSrcNetIds(), Integer.class));
-                ps.setString(5, setToString(data.getDstNetIds(), Integer.class));
-                ps.setString(6, setToString(data.getSrcSetIds(), Integer.class));
-                ps.setString(7, setToString(data.getDstSetIds(), Integer.class));
-                ps.setString(8, setToString(data.getServiceIds(), Integer.class));
+                ps.setString(2, data.getSrcZoneIds());
+                ps.setString(3, data.getDstZoneIds());
+                ps.setString(4, data.getSrcNetIds());
+                ps.setString(5, data.getDstNetIds());
+                ps.setString(6, data.getSrcSetIds());
+                ps.setString(7, data.getDstSetIds());
+                ps.setString(8, data.getServiceIds());
                 ps.setString(9, data.getAction());
                 return ps;
             };
