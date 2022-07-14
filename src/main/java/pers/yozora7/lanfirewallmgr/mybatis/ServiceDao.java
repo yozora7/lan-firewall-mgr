@@ -10,4 +10,5 @@ public interface ServiceDao {
     int queryId(@Param("db") String db, @Param("service") Service service);
     int count(String db);
     int insert(@Param("db") String db, @Param("service") Service service);
+    void updateGroup(@Param("db") String db, @Param("group") String group, @Param("name") String name);
 }

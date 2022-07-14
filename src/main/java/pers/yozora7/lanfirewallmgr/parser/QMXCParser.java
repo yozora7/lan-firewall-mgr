@@ -16,9 +16,21 @@ import java.io.*;
 import java.util.*;
 import java.util.regex.Pattern;
 
+/**
+ * 解析启明星辰防火墙配置文件
+ */
 public class QMXCParser implements Parser {
-    private String config;
-    private Dao dao;
+    private String config;  // 配置文件路径
+    private Dao dao;    // 数据库操作类
+
+    /**
+     * 解析 & 存储
+     * @param config
+     * @param dao
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     public void parse(String config, Dao dao) throws IOException, ParserConfigurationException, SAXException {
         this.config = config;
         this.dao = dao;
@@ -26,6 +38,15 @@ public class QMXCParser implements Parser {
         parseServiceSet();
         parseRule();
     }
+
+    /**
+     * 从XML读取正则表达式
+     * @param nodeName
+     * @return
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     * @throws IOException
+     */
     private List<Map<String, String>> getRegex(String nodeName) throws ParserConfigurationException, SAXException, IOException {
         SAXParserFactory factory = SAXParserFactory.newInstance();
         SAXParser parse = factory.newSAXParser();
@@ -35,41 +56,57 @@ public class QMXCParser implements Parser {
         xmlReader.parse("src/main/resources/QMXCRegex.xml");
         return handler.getList();
     }
+
+    /**
+     * 解析地址集合
+     * 通用格式: address
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     private void parseNetSet() throws IOException, ParserConfigurationException, SAXException {
         int count = dao.count("net");
         int setId = 0;
+
+        // 读取正则表达式
         Map<String, String> regex = getRegex("address").get(0);
-        Pattern header = Pattern.compile(regex.get("header"));
-        Pattern net = Pattern.compile(regex.get("net"));
-        Pattern host = Pattern.compile(regex.get("host"));
-        Pattern range = Pattern.compile(regex.get("range"));
+        Pattern header = Pattern.compile(regex.get("header"));  // 地址头部正则表达式
+        Pattern net = Pattern.compile(regex.get("net"));        // CIDR
+        Pattern host = Pattern.compile(regex.get("host"));      // 单IP
+        Pattern range = Pattern.compile(regex.get("range"));    // IP范围
+
+        // 读取配置文件
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
+            // 文件结束
             if (line == null) {
                 break;
             }
             else {
-                line = line.trim().replaceAll("\\\\","/");
+                line = line.trim().replaceAll("\\\\","/");  // 替换反斜杠
             }
-            // ^address (".*?"|\S+)$
+            // 读取地址集头部, 存储至Set表
             if (header.matcher(line).find()) {
                 setId = dao.addSet(line.split(split)[1].replace("\"",""));
                 continue;
             }
+            // 读取集合内的IP地址, 存储至Net表
             String[] temp = line.split("\\s+");
-            // net-address \d+.\d+.\d+.\d+/\d+$
+            // CIDR
             if (net.matcher(line).find()) {
                 Net data = new Net();
                 data.setSetId(setId);
-                data.setStart(temp[1]);
-                data.setEnd(temp[1]);
+                data.setStart(temp[1].split("/")[0]);
+                data.setStartMask(Integer.parseInt(temp[1].split("/")[1]));
+                data.setEnd(data.getStart());
+                data.setEndMask(data.getStartMask());
                 data.setId(count);
                 if (dao.addNet(data) == count) {
                     count++;
                 }
             }
-            // host-address \d+.\d+.\d+.\d+$
+            // 单IP
             else if (host.matcher(line).find()) {
                 Net data = new Net();
                 data.setSetId(setId);
@@ -82,7 +119,7 @@ public class QMXCParser implements Parser {
                     count++;
                 }
             }
-            // range-address \d+.\d+.\d+.\d+ \d+.\d+.\d+.\d+$
+            // IP范围
             else if (range.matcher(line).find()) {
                 Net data = new Net();
                 data.setSetId(setId);
@@ -98,28 +135,41 @@ public class QMXCParser implements Parser {
         }
         reader.close();
     }
+
+    /**
+     * 解析服务集合
+     * 通用格式: service
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     private void parseServiceSet() throws IOException, ParserConfigurationException, SAXException {
         String name = null;
         int count = dao.count("service");
+
+        // 读取正则表达式
         Map<String, String> regex = getRegex("service").get(0);
-        Pattern header = Pattern.compile(regex.get("header"));
-        Pattern both = Pattern.compile(regex.get("both"));
-        Pattern dst = Pattern.compile(regex.get("dst"));
-        Pattern src = Pattern.compile(regex.get("src"));
+        Pattern header = Pattern.compile(regex.get("header"));  // 服务集头部正则表达式
+        Pattern both = Pattern.compile(regex.get("both"));      // 源端口和目标端口
+        Pattern dst = Pattern.compile(regex.get("dst"));        // 目标端口
+        Pattern src = Pattern.compile(regex.get("src"));        // 源端口
+
+        // 读取配置文件
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
+            // 文件结束
             if (line == null) {
                 break;
             } else {
-                line = line.trim().replaceAll("\\\\","/");
+                line = line.trim().replaceAll("\\\\","/");  // 替换反斜杠
             }
-            // ^service (".*?"|\S+)$
+            // 读取服务名称
             if (header.matcher(line).find()) {
                 name = line.split(split)[1].replace("\"","");
                 continue;
             }
-            // \S+ dest \d+(\s+\d+)? source \d+(\s+\d+)?$
+            // 目标端口和源端口
             if (both.matcher(line).find()) {
                 Service data = new Service();
                 data.setName(name);
@@ -144,7 +194,7 @@ public class QMXCParser implements Parser {
                     count++;
                 }
             }
-            // \S+ dest \d+(\s+\d+)?$
+            // 目标端口
             else if (dst.matcher(line).find()) {
                 Service data = new Service();
                 data.setName(name);
@@ -163,7 +213,7 @@ public class QMXCParser implements Parser {
                     count++;
                 }
             }
-            // \S+ source \d+(\s+\d+)?$
+            // 目标端口
             else if (src.matcher(line).find()) {
                 Service data = new Service();
                 data.setName(name);
@@ -178,18 +228,29 @@ public class QMXCParser implements Parser {
                     data.setSrcEndPort(data.getSrcStartPort());
                 }
                 data.setId(count);
+                //
                 if (dao.addService(data) == count) {
                     count++;
                 }
             }
         }
     }
+
+    /**
+     * 解析防火墙规则
+     * 通用格式: firewall policy
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     private void parseRule() throws IOException, ParserConfigurationException, SAXException {
         Rule data = null;
         boolean flag = false;
         String policyNum = "";
         int count = dao.count("rule");
         int countService = dao.count("service");
+
+        // 存储规则中的地址/服务/安全域等条目在表中的id
         HashSet<Integer> srcSetIds = null;
         HashSet<Integer> dstSetIds = null;
         HashSet<Integer> srcNetIds = null;
@@ -197,6 +258,8 @@ public class QMXCParser implements Parser {
         HashSet<Integer> srcZoneIds = null;
         HashSet<Integer> dstZoneIds = null;
         HashSet<Integer> serviceIds = null;
+
+        // 读取正则表达式
         Map<String, String> regex = getRegex("rule").get(0);
         Pattern header = Pattern.compile(regex.get("header"));
         Pattern ruleName = Pattern.compile(regex.get("name"));
@@ -207,16 +270,19 @@ public class QMXCParser implements Parser {
         Pattern dstSet = Pattern.compile(regex.get("dst-set"));
         Pattern serviceName = Pattern.compile(regex.get("service-name"));
         Pattern app = Pattern.compile(regex.get("app"));
+
+        // 读取配置文件
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
+            // 文件结束
             if (line == null) {
                 break;
             }
             else {
-                line = line.trim().replaceAll("\\\\","/");
+                line = line.trim().replaceAll("\\\\","/");  // 替换反斜杠
             }
-            // ^firewall policy \d+$
+            // 读取规则头部
             if (header.matcher(line).find()) {
                 flag = true;
                 data = new Rule();
@@ -230,31 +296,31 @@ public class QMXCParser implements Parser {
                 policyNum = line.split("\\s+")[2];
             }
             if (flag) {
-                // name (".*?"|\S+)$
+                // 规则名称
                 if (ruleName.matcher(line).find()) {
                     data.setName(line.split(split)[1].replace("\"",""));
                 }
-                // action (".*?"|\S+)
+                // 动作
                 else if (action.matcher(line).find()) {
                     data.setAction(line.replace("action","").trim());
                 }
-                // src-zone (".*?"|\S+)$
+                // 源安全域
                 else if (srcZone.matcher(line).find()) {
                     srcZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
                 }
-                // dst-zone (".*?"|\S+)$
+                // 目标安全域
                 else if (dstZone.matcher(line).find()) {
                     dstZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
                 }
-                // src-addr (".*?"|\S+)$
+                // 源地址集
                 else if (srcSet.matcher(line).find()) {
                     srcSetIds.add(dao.addSet(line.split(split)[1].replace("\"","")));
                 }
-                // dst-addr (".*?"|\S+)$
+                // 目标地址集
                 else if (dstSet.matcher(line).find()) {
                     dstSetIds.add(dao.addSet(line.split(split)[1].replace("\"","")));
                 }
-                // service (".*?"|\S+)$
+                // 服务
                 else if (serviceName.matcher(line).find()) {
                     String name = line.split(split)[1].replace("\"","");
                     Service service = new Service();
@@ -266,7 +332,7 @@ public class QMXCParser implements Parser {
                         countService++;
                     }
                 }
-                // app (".*?"|\S+)$
+                // 应用(不再记录, 直接保存规则)
                 else if (app.matcher(line).find()) {
                     data.setSrcSetIds(Utils.setToString(srcSetIds, Integer.class));
                     data.setSrcNetIds(Utils.setToString(srcNetIds, Integer.class));
@@ -276,6 +342,7 @@ public class QMXCParser implements Parser {
                     data.setDstZoneIds(Utils.setToString(dstZoneIds, Integer.class));
                     data.setServiceIds(Utils.setToString(serviceIds, Integer.class));
                     data.setId(count);
+                    // 没有指定name, 则使用规则编号
                     if (data.getName() == null) {
                         data.setName("policy_" + policyNum);
                     }

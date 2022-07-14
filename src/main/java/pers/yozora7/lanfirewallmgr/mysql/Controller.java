@@ -23,10 +23,12 @@ public class Controller {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    // 解析防火墙配置文件
     @RequestMapping(value = "/parse", method = RequestMethod.POST)
     public String parse (@RequestParam String database ,@RequestParam String config, @RequestParam String type) throws IOException, ParserConfigurationException, SAXException {
         Dao dao = new Dao(jdbcTemplate, database);
         log.info("{}", database);
+        // 根据品牌使用不同的解析器
         switch (type) {
             case "huawei": {
                 HuaweiParser parser = new HuaweiParser();
@@ -47,6 +49,7 @@ public class Controller {
         return "success";
     }
 
+    // 简单查询接口示例(查询目标IP对应的规则内容)
     @RequestMapping(value = "/query", method = RequestMethod.GET)
     public String query(@RequestParam String database ,@RequestParam String ip) throws SQLException {
         Gson gson = new Gson();

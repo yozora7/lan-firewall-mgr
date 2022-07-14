@@ -14,6 +14,10 @@ import java.sql.Statement;
 
 import static pers.yozora7.lanfirewallmgr.utils.Utils.setToString;
 
+/**
+ * 数据库持久化操作类
+ * 使用JDBC, 后续将迁移至MyBatis
+ */
 public class Dao {
     @Autowired
     private JdbcTemplate jdbcTemplate;

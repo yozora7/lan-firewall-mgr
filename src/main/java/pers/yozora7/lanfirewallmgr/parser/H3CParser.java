@@ -22,9 +22,21 @@ import java.util.regex.Pattern;
 
 import static pers.yozora7.lanfirewallmgr.utils.Utils.longMaskToShort;
 
+/**
+ * 解析新华三(H3C)防火墙配置文件
+ */
 public class H3CParser implements Parser {
-    private String config;
-    private Dao dao;
+    private String config;  // 配置文件路径
+    private Dao dao;    // 数据库操作类
+
+    /**
+     * 解析 & 存储
+     * @param config
+     * @param dao
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     public void parse(String config, Dao dao) throws IOException, ParserConfigurationException, SAXException {
         this.config = config;
         this.dao = dao;
@@ -32,6 +44,15 @@ public class H3CParser implements Parser {
         parseServiceSet();
         parseRule();
     }
+
+    /**
+     * 从XML读取正则表达式
+     * @param nodeName
+     * @return
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     * @throws IOException
+     */
     private List<Map<String, String>> getRegex(String nodeName) throws ParserConfigurationException, SAXException, IOException {
         SAXParserFactory factory = SAXParserFactory.newInstance();
         SAXParser parse = factory.newSAXParser();
@@ -41,35 +62,49 @@ public class H3CParser implements Parser {
         xmlReader.parse("src/main/resources/H3CRegex.xml");
         return handler.getList();
     }
+
+    /**
+     * 解析地址集合
+     * 通用格式: object-group ip address
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     private void parseNetSet() throws IOException, ParserConfigurationException, SAXException {
-        boolean flag = false;
-        int count = dao.count("net");
+        boolean flag = false;   // 是否读取到地址集
+        int count = dao.count("net");   // 数据库已有地址集数量
         int setId = 0;
+
+        // 获取正则表达式
         Map<String, String> regex = getRegex("address").get(0);
-        Pattern header = Pattern.compile(regex.get("header"));
-        Pattern host = Pattern.compile(regex.get("host"));
-        Pattern range = Pattern.compile(regex.get("range"));
-        Pattern subnet = Pattern.compile(regex.get("subnet"));
+        Pattern header = Pattern.compile(regex.get("header"));  // 地址集头部正则表达式
+        Pattern host = Pattern.compile(regex.get("host"));      // 单IP正则表达式
+        Pattern range = Pattern.compile(regex.get("range"));    // IP段正则表达式
+        Pattern subnet = Pattern.compile(regex.get("subnet"));  // 子网正则表达式
+
+        // 读取配置文件
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
+            // 文件结束
             if (line == null) {
                 break;
             } else {
                 line = line.trim().replaceAll("\\\\","/");
             }
-            // object-group ip address (".*?"|\S+)
+            // 读取地址集头部, 存储至Set表
             if (header.matcher(line).find()) {
                 String name = line.split(split)[3].replace("\"","");
                 setId = dao.addSet(name);
-                flag = true;
+                flag = true;    // 读取到地址集
                 continue;
             }
+            // 读取集合内的IP地址, 存储至Net表
             if (flag) {
                 String[] temp = line.split("\\s+");
                 Net data = new Net();
                 data.setSetId(setId);
-                // \d+ network host address \d\S+
+                // 单IP
                 if (host.matcher(line).find()) {
                     data.setStart(temp[4]);
                     data.setStartMask(32);
@@ -80,7 +115,7 @@ public class H3CParser implements Parser {
                         count++;
                     }
                 }
-                // \d+ network range \d\S+ \d\S+$
+                // IP范围
                 else if (range.matcher(line).find()) {
                     data.setStart(temp[3]);
                     data.setStartMask(32);
@@ -91,7 +126,7 @@ public class H3CParser implements Parser {
                         count++;
                     }
                 }
-                // \d+ network subnet \S+ \d\S+$
+                // 子网
                 else if (subnet.matcher(line).find()) {
                     data.setStart(temp[3]);
                     data.setStartMask(longMaskToShort(temp[4]));
@@ -103,47 +138,61 @@ public class H3CParser implements Parser {
                     }
                 }
             }
+            // 地址集结尾
             if (line.equals("#")) {
                 flag = false;
             }
         }
         reader.close();
     }
+
+    /**
+     * 解析自定义服务
+     * 通用格式: object-group service
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     private void parseServiceSet() throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         String name = null;
         int count = dao.count("service");
+
+        // 获取正则表达式
         Map<String, String> regex = getRegex("service").get(0);
-        Pattern header = Pattern.compile(regex.get("header"));
-        Pattern eq = Pattern.compile(regex.get("eq"));
-        Pattern range = Pattern.compile(regex.get("range"));
-        Pattern bothEq = Pattern.compile(regex.get("both-eq"));
-        Pattern bothRange = Pattern.compile(regex.get("both-range"));
-        Pattern eqRange = Pattern.compile(regex.get("eq-range"));
-        Pattern rangeEq = Pattern.compile(regex.get("range-eq"));
+        Pattern header = Pattern.compile(regex.get("header"));          // 服务集头部正则表达式
+        Pattern eq = Pattern.compile(regex.get("eq"));                  // 目的端口号
+        Pattern range = Pattern.compile(regex.get("range"));            // 目的端口范围
+        Pattern bothEq = Pattern.compile(regex.get("both-eq"));         // 源端和目的端都是指定端口号
+        Pattern bothRange = Pattern.compile(regex.get("both-range"));   // 源端和目的端都是端口范围
+        Pattern eqRange = Pattern.compile(regex.get("eq-range"));       // 源端是端口号, 目的端是端口范围
+        Pattern rangeEq = Pattern.compile(regex.get("range-eq"));       // 源端是端口范围, 目的端是端口号
+
+        // 读取配置文件
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
+            // 文件结束
             if (line == null) {
                 break;
             } else {
-                line = line.trim().replaceAll("\\\\","/");
+                line = line.trim().replaceAll("\\\\","/");  // 替换反斜杠
             }
-            // object-group service (".*?"|\S+)
+            // 读取服务集头部
             if (header.matcher(line).find()) {
                 name = line.split(split)[2].replace("\"","");
                 flag = true;
                 continue;
             }
             if (flag) {
+                // 读取服务内容, 存储至Service表
                 Service data = new Service();
                 data.setName(name);
-                // \d+ service \S+ destination \D+ \d+$
+                // 获取源端口和目的端口
+                // eq 目的端口号
                 if (eq.matcher(line).find()) {
-
                     String temp = line.split("\\s+")[4];
                     String protocol = line.split("\\s+")[2];
-
                     data.setProtocol(protocol);
                     data.setSrcStartPort(0);
                     data.setSrcEndPort(65535);
@@ -166,7 +215,7 @@ public class H3CParser implements Parser {
                         count++;
                     }
                 }
-                // \d+ service \S+ destination range \d+ \d+$
+                // range 目的端口范围
                 else if (range.matcher(line).find()) {
                     String protocol = line.split("\\s+")[2];
                     data.setProtocol(protocol);
@@ -179,7 +228,7 @@ public class H3CParser implements Parser {
                         count++;
                     }
                 }
-                // \d+ service \S+ source \D+ \d+ destination \D+ \d+$
+                // both-eq 源端口号和目的端口号
                 else if (bothEq.matcher(line).find()) {
                     String protocol = line.split("\\s+")[2];
                     String temp1 = line.split("\\s+")[4];
@@ -218,7 +267,7 @@ public class H3CParser implements Parser {
                         count++;
                     }
                 }
-                // \d+ service \S+ source range \d+ \d+ destination range \d+ \d+$
+                // both-range 源端口范围和目的端口范围
                 else if (bothRange.matcher(line).find()) {
                     String protocol = line.split("\\s+")[2];
                     data.setProtocol(protocol);
@@ -231,7 +280,7 @@ public class H3CParser implements Parser {
                         count++;
                     }
                 }
-                // \d+ service \S+ source range \d+ \d+ destination \D+ \d+$
+                // range-dq 源端口范围和目的端口号
                 else if (rangeEq.matcher(line).find()) {
                     String protocol = line.split("\\s+")[2];
                     String temp = line.split("\\s+")[8];
@@ -257,7 +306,7 @@ public class H3CParser implements Parser {
                         count++;
                     }
                 }
-                // \d+ service \S+ source \D+ \d+ destination range \d+ \d+$
+                // eq-range 源端口号和目的端口范围
                 else if (eqRange.matcher(line).find()) {
                     String protocol = line.split("\\s+")[2];
                     String temp = line.split("\\s+")[4];
@@ -289,12 +338,21 @@ public class H3CParser implements Parser {
         }
         reader.close();
     }
+
+    /**
+     * 解析防火墙规则
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     private void parseRule() throws IOException, ParserConfigurationException, SAXException {
         Rule data = null;
         Boolean flag = false;
         int count = dao.count("rule");
         int countNet = dao.count("net");
         int countService = dao.count("service");
+
+        // 存储规则中的地址/服务/安全域等条目在表中的id
         HashSet<Integer> srcSetIds = null;
         HashSet<Integer> dstSetIds = null;
         HashSet<Integer> srcNetIds = null;
@@ -302,6 +360,8 @@ public class H3CParser implements Parser {
         HashSet<Integer> srcZoneIds = null;
         HashSet<Integer> dstZoneIds = null;
         HashSet<Integer> serviceIds = null;
+
+        // 获取正则表达式
         Map<String, String> regex = getRegex("rule").get(0);
         Pattern header = Pattern.compile(regex.get("header"));
         Pattern action = Pattern.compile(regex.get("action"));
@@ -314,16 +374,20 @@ public class H3CParser implements Parser {
         Pattern dstHost = Pattern.compile(regex.get("dst-host"));
         Pattern dstSubnet = Pattern.compile(regex.get("dst-subnet"));
         Pattern serviceName = Pattern.compile(regex.get("service-name"));
+
+        // 读取配置文件
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
+            // 文件结束
             if (line == null) {
                 break;
             } else {
-                line = line.trim().replaceAll("\\\\","/");
+                line = line.trim().replaceAll("\\\\","/");  // 替换反斜杠
             }
-            // rule \d+ name (".*?"|\S+)$
+            // 读取规则头部
             if (header.matcher(line).find()) {
+                // 保存上一条规则
                 if (flag && data != null) {
                     data.setSrcSetIds(Utils.setToString(srcSetIds, Integer.class));
                     data.setSrcNetIds(Utils.setToString(srcNetIds, Integer.class));
@@ -337,6 +401,7 @@ public class H3CParser implements Parser {
                         count++;
                     }
                 }
+                // 新的规则
                 data = new Rule();
                 srcSetIds = new HashSet<>();
                 dstSetIds = new HashSet<>();
@@ -345,23 +410,24 @@ public class H3CParser implements Parser {
                 srcZoneIds = new HashSet<>();
                 dstZoneIds = new HashSet<>();
                 serviceIds = new HashSet<>();
-                data.setName(line.split(split)[3].replace("\"",""));
+                data.setName(line.split(split)[3].replace("\"",""));    // 规则名称
                 flag = true;
             }
+            // 读取规则内容
             if (flag) {
-                // action (".*?"|\S+)
+                // 动作 (pass/block/reject/...)
                 if (action.matcher(line).find()) {
                     data.setAction(line.replace("action", "").trim());
                 }
-                // source-zone (".*?"|\S+)$
+                // 源安全域
                 else if (srcZone.matcher(line).find()) {
                     srcZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
                 }
-                // source-ip (".*?"|\S+)$
+                // 源地址集
                 else if (srcSet.matcher(line).find()) {
                     srcSetIds.add(dao.addSet(line.split(split)[1].replace("\"","")));
                 }
-                // source-ip-host (".*?"|\S+)$
+                // 源地址(单IP)
                 else if (srcHost.matcher(line).find()) {
                     Net net = new Net();
                     net.setStart(line.split(split)[1]);
@@ -376,7 +442,7 @@ public class H3CParser implements Parser {
                         countNet++;
                     }
                 }
-                // source-ip-subnet (".*?"|\S+) (".*?"|\S+)$
+                // 源地址(子网)
                 else if (srcSubnet.matcher(line).find()) {
                     Net net = new Net();
                     net.setStart(line.split(split)[1]);
@@ -391,15 +457,15 @@ public class H3CParser implements Parser {
                         countNet++;
                     }
                 }
-                // destination-zone (".*?"|\S+)$
+                // 目标安全域
                 else if (dstZone.matcher(line).find()) {
                     dstZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
                 }
-                // destination-ip (".*?"|\S+)$
+                // 目标地址集
                 else if (dstSet.matcher(line).find()) {
                     dstSetIds.add(dao.addSet(line.split(split)[1].replace("\"","")));
                 }
-                // destination-ip-host (".*?"|\S+)$
+                // 目标地址(单IP)
                 else if (dstHost.matcher(line).find()) {
                     Net net = new Net();
                     net.setStart(line.split(split)[1]);
@@ -414,7 +480,7 @@ public class H3CParser implements Parser {
                         countNet++;
                     }
                 }
-                // destination-ip-subnet (".*?"|\S+) (".*?"|\S+)$
+                // 目标地址(子网)
                 else if (dstSubnet.matcher(line).find()) {
                     Net net = new Net();
                     net.setStart(line.split(split)[1]);
@@ -429,7 +495,7 @@ public class H3CParser implements Parser {
                         countNet++;
                     }
                 }
-                // service (".*?"|\S+)$
+                // 服务
                 else if (serviceName.matcher(line).find()) {
                     String name = line.split(split)[1].replace("\"","");
                     Service service = new Service();
@@ -441,6 +507,7 @@ public class H3CParser implements Parser {
                         countService++;
                     }
                 }
+                // 读到#号保存最后一条规则
                 else if (line.equals("#")) {
                     flag = false;
                     data.setSrcSetIds(Utils.setToString(srcSetIds, Integer.class));

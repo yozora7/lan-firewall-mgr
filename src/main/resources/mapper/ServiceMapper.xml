@@ -36,4 +36,9 @@
                 #{service.dstStartPort}, #{service.dstEndPort}, #{service.group});
     </update>
 
+    <!-- update group -->
+    <update id="updateGroup" parameterType="map">
+        UPDATE ${db}.service SET group = #{group} WHERE name = #{name};
+    </update>
+
 </mapper>

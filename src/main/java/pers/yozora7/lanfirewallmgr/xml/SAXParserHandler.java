@@ -9,6 +9,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 简单 XML API (Simple API for XML, SAX) 解析器
+ * 用于解析防火墙配置文件对应的正则表达式
+ */
 public class SAXParserHandler extends DefaultHandler {
     private Map<String, String> map = null;
     private List<Map<String, String>> list = null;
