@@ -7,6 +7,9 @@ import lombok.Setter;
 
 import java.util.Set;
 
+/**
+ * 查询结果实体类
+ */
 @Getter
 @Setter
 @NoArgsConstructor

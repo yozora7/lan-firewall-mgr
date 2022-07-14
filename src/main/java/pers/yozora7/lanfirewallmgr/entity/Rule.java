@@ -11,6 +11,10 @@ import java.util.HashSet;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+
+/**
+ * 规则实体类
+ */
 public class Rule {
     // 序号
     private int id;

@@ -5,6 +5,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * 服务实体类
+ */
+
 @Getter
 @Setter
 @NoArgsConstructor

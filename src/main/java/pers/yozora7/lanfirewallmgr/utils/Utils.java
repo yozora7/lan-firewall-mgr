@@ -9,7 +9,7 @@ import java.util.Set;
  */
 public class Utils {
     // set -> string
-    public static <T> String setToString (Set<T> set, Class<T> tClass) {
+    public static <T> String setToString(Set<T> set, Class<T> tClass) {
         String result = null;
         for (T t : set) {
             if (result == null) {
@@ -17,7 +17,7 @@ public class Utils {
             }
             result += t.toString() + ",";
         }
-        if (result != null && result.length() > 0) {
+        if (result != null) {
             result = result.substring(0, result.length() - 1);
         }
         return result;
@@ -50,12 +50,12 @@ public class Utils {
             return false;
         }
         // 掩码转换为bit
-        Long maskBit = Long.parseLong(maskToBinary(mask2),2);
+        Long maskBit = Long.parseLong(maskToBinary(mask2), 2);
         return (bin1 & maskBit) == (bin2 & maskBit);
     }
 
     // 判断IP是否在IP1~IP2内
-    public static boolean isIpInRange (String ip, String ip1, String ip2) {
+    public static boolean isIpInRange(String ip, String ip1, String ip2) {
         if (ip1.contains(":") || ip2.contains(":")) {
             return false;
         }
@@ -68,7 +68,7 @@ public class Utils {
     }
 
     // IP地址 (xxx.xxx.xxx.xxx) 转32位二进制串
-    public static String ipToBinary (String ip) {
+    public static String ipToBinary(String ip) {
         String[] temp = ip.split("\\.");
         String bin = "";
         for (String i : temp) {
@@ -78,7 +78,7 @@ public class Utils {
     }
 
     // 32位二进制串转IP地址 (xxx.xxx.xxx.xxx)
-    public static String binaryToIp (String bin) {
+    public static String binaryToIp(String bin) {
         String ip = "";
         for (int i = 8; i <= 32; i++) {
             if (i % 8 == 0) {
@@ -92,7 +92,7 @@ public class Utils {
     }
 
     // 十进制数转二进制数
-    public static String decimalToBinary (int n) {
+    public static String decimalToBinary(int n) {
         String bin = "";
         for (int i = 31; i >= 0; i--) {
             bin += (n >>> i & 1);
@@ -113,7 +113,7 @@ public class Utils {
     }
 
     // 掩码 (xxx.xxx.xxx.xxx) 转2位数
-    public static int longMaskToShort (String mask) {
+    public static int longMaskToShort(String mask) {
         int result = 0;
         String[] temp = mask.split("\\.");
         for (int i = 0; i < 4; i++) {
@@ -128,13 +128,13 @@ public class Utils {
     }
 
     // 由反掩码得到掩码
-    public static int wildcardToMask (String wildcard) {
+    public static int wildcardToMask(String wildcard) {
         // 反掩码 (xxx.xxx.xxx.xxx) 转为32位二进制串
         String binary = ipToBinary(wildcard);
         // 取反得到掩码
         String mask = "";
         for (int i = 0; i < 32; i++) {
-            mask += (binary.charAt(i) == '0')?"1":"0";
+            mask += (binary.charAt(i) == '0') ? "1" : "0";
         }
         mask = binaryToIp(mask);
         // 转换为十进制2位数

@@ -5,6 +5,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * IP地址实体类
+ * start/startMask: 起始地址/子网掩码
+ * end/endMask: 结束地址/子网掩码
+ * setId: 所属地址集(set)的ID
+ */
 @Getter
 @Setter
 @NoArgsConstructor

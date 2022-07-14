@@ -9,6 +9,10 @@ import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * 简单查询实现
+ * 给定目标IP地址, 查询其涉及的防火墙规则
+ */
 public class Query {
     private JdbcTemplate jdbcTemplate;
     private String database;

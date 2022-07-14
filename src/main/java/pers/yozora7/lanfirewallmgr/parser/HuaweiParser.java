@@ -19,9 +19,21 @@ import java.util.regex.Pattern;
 import static pers.yozora7.lanfirewallmgr.utils.Utils.longMaskToShort;
 import static pers.yozora7.lanfirewallmgr.utils.Utils.wildcardToMask;
 
+/**
+ * 解析Huawei防火墙配置文件
+ */
 public class HuaweiParser implements Parser {
-    private String config;
-    private Dao dao;
+    private String config;  // 防火墙配置文件路径
+    private Dao dao;        // 数据库操作类
+
+    /**
+     * 解析 & 存储
+     * @param config
+     * @param dao
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     public void parse(String config, Dao dao) throws IOException, ParserConfigurationException, SAXException {
         this.config = config;
         this.dao = dao;
@@ -30,7 +42,15 @@ public class HuaweiParser implements Parser {
         parseServiceGroup();
         parseRule();
     }
-    // 从XML读取正则表达式
+
+    /**
+     * 从XML读取正则表达式
+     * @param nodeName
+     * @return
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     * @throws IOException
+     */
     private List<Map<String, String>> getRegex(String nodeName) throws ParserConfigurationException, SAXException, IOException {
         SAXParserFactory factory = SAXParserFactory.newInstance();
         SAXParser parse = factory.newSAXParser();
@@ -40,49 +60,64 @@ public class HuaweiParser implements Parser {
         xmlReader.parse("src/main/resources/HuaweiRegex.xml");
         return handler.getList();
     }
-    // ip address-set
+
+    /**
+     * 解析地址集合
+     * 通用格式: ip address-set
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     private void parseNetSet() throws IOException, ParserConfigurationException, SAXException {
-        boolean flag = false;
-        int count = dao.count("net");
+        boolean flag = false;   // 是否读取到地址集
+        int count = dao.count("net");   // 数据库已有地址集数量
         int setId = 0;
+
+        // 获取正则表达式
         Map<String, String> regex = getRegex("address").get(0);
-        Pattern header = Pattern.compile(regex.get("header"));
-        Pattern host = Pattern.compile(regex.get("host"));
-        Pattern range = Pattern.compile(regex.get("range"));
-        Pattern mask = Pattern.compile(regex.get("mask"));
-        Pattern longMask = Pattern.compile(regex.get("long-mask"));
-        Pattern wildcard = Pattern.compile(regex.get("wildcard"));
+        Pattern header = Pattern.compile(regex.get("header"));      // 地址集头部正则表达式
+        Pattern host = Pattern.compile(regex.get("host"));          // 单IP正则表达式
+        Pattern range = Pattern.compile(regex.get("range"));        // IP段正则表达式
+        Pattern mask = Pattern.compile(regex.get("mask"));          // 带CIDR掩码正则表达式
+        Pattern longMask = Pattern.compile(regex.get("long-mask")); // 带掩码正则表达式
+        Pattern wildcard = Pattern.compile(regex.get("wildcard"));  // 带反掩码正则表达式
+
+        // 读取配置文件
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
+            // 文件结束
             if (line == null) {
                 break;
             }
             else {
-                line = line.trim().replaceAll("\\\\","/");
+                line = line.trim().replaceAll("\\\\","/");  // 替换反斜杠
             }
-            // ip address-set (".*?"|\S+) type
+
+            // 读取地址集头部, 存储至Set表
             if (header.matcher(line).find()) {
                 setId = dao.addSet(line.split(split)[2].replace("\"",""));
-                flag = true;
+                flag = true;    // 读取到地址集
                 continue;
             }
+            // 读取集合内的IP地址, 存储至Net表
             if (flag) {
                 String[] temp = line.split("\\s+");
                 Net data = new Net();
                 data.setSetId(setId);
-                // address \d+ \d\S+ 0$
+                // 单IP
                 if (host.matcher(line).find()) {
                     data.setStart(temp[2]);
                     data.setStartMask(32);
                     data.setEnd(temp[2]);
                     data.setEndMask(32);
                     data.setId(count);
+                    // 存储至数据库
                     if (dao.addNet(data) == count) {
                         count++;
                     }
                 }
-                // address \d+ range \d\S+ \d\S+$
+                // IP范围
                 else if (range.matcher(line).find()) {
                     data.setStart(temp[3]);
                     data.setStartMask(32);
@@ -93,7 +128,7 @@ public class HuaweiParser implements Parser {
                         count++;
                     }
                 }
-                // address \d+ \d\S+ mask \d+$
+                // CIDR (带2位数掩码)
                 else if (mask.matcher(line).find()) {
                     data.setStart(temp[2]);
                     data.setStartMask(32);
@@ -104,7 +139,7 @@ public class HuaweiParser implements Parser {
                         count++;
                     }
                 }
-                // address \d+ \d\S+ mask \d+.\S+$
+                // 带掩码 (xxx.xxx.xxx.xxx)
                 else if (longMask.matcher(line).find()) {
                     data.setStart(temp[2]);
                     data.setStartMask(longMaskToShort(temp[4]));
@@ -115,7 +150,7 @@ public class HuaweiParser implements Parser {
                         count++;
                     }
                 }
-                // address \d+ \d\S+ \d\S+$
+                // 带反掩码
                 else if (wildcard.matcher(line).find()) {
                     data.setStart(temp[2]);
                     data.setStartMask(wildcardToMask(temp[3]));
@@ -127,41 +162,54 @@ public class HuaweiParser implements Parser {
                     }
                 }
             }
+            // 地址集结尾
             if (line.equals("#")) {
-                flag = false;
+                flag = false;   // 重置flag
             }
         }
         reader.close();
     }
-    // ip service-set type object
+
+    /**
+     * 解析自定义服务
+     * 通用格式: ip service-set type object
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     private void parseServiceSet() throws IOException, ParserConfigurationException, SAXException {
-        boolean flag = false;
-        String name = null;
+        boolean flag = false;   // 是否读取到服务内容
+        String name = null;     // 服务名称
         int count = dao.count("service");
+
+        // 获取正则表达式
         Map<String, String> regex = getRegex("service-set").get(0);
-        Pattern header = Pattern.compile(regex.get("header"));
-        Pattern content = Pattern.compile(regex.get("content"));
+        Pattern header = Pattern.compile(regex.get("header"));      // 服务开头正则表达式
+        Pattern content = Pattern.compile(regex.get("content"));    // 服务内容正则表达式
+
+        // 读取配置文件
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
+            // 文件结束
             if (line == null) {
                 break;
+            } else {
+                line = line.trim().replaceAll("\\\\","/");  // 替换反斜杠
             }
-            else {
-                line = line.trim().replaceAll("\\\\","/");
-            }
-            // ip service-set (".*?"|\S+) type object \d+$
+            // 读取服务头部
             if (header.matcher(line).find()) {
                 name = line.split(split)[2].replace("\"","");
                 flag = true;
                 continue;
             }
             if (flag) {
-                // service \d+ protocol \S+ source-port \d+
+                // 读取服务内容, 存储至Service表
                 if (content.matcher(line).find()) {
                     Service data = new Service();
                     data.setName(name);
                     data.setProtocol(line.split("\\s+")[3]);
+                    // 获取源端口和目的端口
                     String[] srcPorts = line.split("source-port|destination-port")[1].replaceAll("\\s+", "").split("to");
                     String[] dstPorts = line.split("source-port|destination-port")[2].replaceAll("\\s+", "").split("to");
                     data.setSrcStartPort(Integer.parseInt(srcPorts[0]));
@@ -177,52 +225,74 @@ public class HuaweiParser implements Parser {
                         data.setDstEndPort(Integer.parseInt(dstPorts[0]));
                     }
                     data.setId(count);
+                    // 存储至数据库
                     if (dao.addService(data) == count) {
                         count++;
                     }
-                } else if (line.equals("#")) {
-                    flag = false;
+                }
+                // 服务结尾
+                else if (line.equals("#")) {
+                    flag = false;   // 重置flag
                 }
             }
         }
         reader.close();
     }
-    // ip service-set type group
+
+    /**
+     * 解析服务集合
+     * 通用格式: ip service-set type group
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     private void parseServiceGroup() throws IOException, ParserConfigurationException, SAXException {
-        boolean flag = false;
-        String group = null;
+        boolean flag = false;   // 是否读取到服务集
+        String group = null;    // 服务集名称
+
+        // 获取正则表达式
         Map<String, String> regex = getRegex("service-group").get(0);
-        Pattern header = Pattern.compile(regex.get("header"));
-        Pattern set = Pattern.compile(regex.get("set"));
+        Pattern header = Pattern.compile(regex.get("header"));    // 服务集开头正则表达式
+        Pattern set = Pattern.compile(regex.get("set"));    // 服务集内容正则表达式(存储服务名称)
+
+        // 读取配置文件
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
+            // 文件结束
             if (line == null) {
                 break;
             }
             else {
-                line = line.trim().replaceAll("\\\\","/");
+                line = line.trim().replaceAll("\\\\","/");  // 替换反斜杠
             }
-            // ip service-set (".*?"|\S+) type group \d+$
+            // 读取服务集头部
             if (header.matcher(line).find()) {
                 group = line.split(split)[2].replace("\"","");
                 flag = true;
                 continue;
             }
-            // service \d+ service-set (".*?"|\S+)$
+            // 读取集合内服务名称, 将集合名称追加至Service表
             if (flag) {
                 if (set.matcher(line).find()) {
                     String service = line.split(split)[3].replace("\"","");
                     dao.addGroup(service, group);
                 }
+                // 服务集结尾
                 else if (line.equals("#")) {
-                    flag = false;
+                    flag = false;   // 重置flag
                 }
             }
         }
         reader.close();
     }
-    // rule
+
+    /**
+     * 解析防火墙规则
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
     private void parseRule() throws IOException, ParserConfigurationException, SAXException {
         boolean flag = false;
         Rule data = null;
@@ -230,6 +300,8 @@ public class HuaweiParser implements Parser {
         int count = dao.count("rule");
         int countNet = dao.count("net");
         int countService = dao.count("service");
+
+        // 存储规则中的地址/服务/安全域等条目在表中的id
         HashSet<Integer> srcSetIds = null;
         HashSet<Integer> dstSetIds = null;
         HashSet<Integer> srcZoneIds = null;
@@ -238,30 +310,35 @@ public class HuaweiParser implements Parser {
         HashSet<Integer> dstNetIds = null;
         HashSet<Integer> serviceIds = null;
         HashSet<String> serviceGroups = null;
+
+        // 获取正则表达式
         Map<String, String> regex = getRegex("rule").get(0);
-        Pattern header = Pattern.compile(regex.get("header"));
-        Pattern srcZone = Pattern.compile(regex.get("src-zone"));
-        Pattern srcSet = Pattern.compile(regex.get("src-set"));
-        Pattern srcMask = Pattern.compile(regex.get("src-mask"));
-        Pattern srcRange = Pattern.compile(regex.get("src-range"));
-        Pattern dstZone = Pattern.compile(regex.get("dst-zone"));
-        Pattern dstSet = Pattern.compile(regex.get("dst-set"));
-        Pattern dstMask = Pattern.compile(regex.get("dst-mask"));
-        Pattern dstRange = Pattern.compile(regex.get("dst-range"));
-        Pattern serviceName = Pattern.compile(regex.get("service-name"));
-        Pattern app = Pattern.compile(regex.get("app"));
-        Pattern serviceContent = Pattern.compile(regex.get("service-content"));
-        Pattern action = Pattern.compile(regex.get("action"));
+        Pattern header = Pattern.compile(regex.get("header"));                  // 规则开头正则表达式
+        Pattern srcZone = Pattern.compile(regex.get("src-zone"));               // 源安全域
+        Pattern srcSet = Pattern.compile(regex.get("src-set"));                 // 源地址集
+        Pattern srcMask = Pattern.compile(regex.get("src-mask"));               // 源CIDR地址
+        Pattern srcRange = Pattern.compile(regex.get("src-range"));             // 源地址段
+        Pattern dstZone = Pattern.compile(regex.get("dst-zone"));               // 目标安全域
+        Pattern dstSet = Pattern.compile(regex.get("dst-set"));                 // 目标地址集
+        Pattern dstMask = Pattern.compile(regex.get("dst-mask"));               // 目标CIDR地址
+        Pattern dstRange = Pattern.compile(regex.get("dst-range"));             // 目标地址段
+        Pattern serviceName = Pattern.compile(regex.get("service-name"));       // 服务名称
+        Pattern app = Pattern.compile(regex.get("app"));                        // 应用名称
+        Pattern serviceContent = Pattern.compile(regex.get("service-content")); // 服务内容
+        Pattern action = Pattern.compile(regex.get("action"));                  // 动作(permit/deny)
+
+        // 读取配置文件
         BufferedReader reader = new BufferedReader(new FileReader(config));
         while (true) {
             String line = reader.readLine();
+            // 文件结束
             if (line == null) {
                 break;
             }
             else {
-                line = line.trim().replaceAll("\\\\","/");
+                line = line.trim().replaceAll("\\\\","/");  // 替换反斜杠
             }
-            // rule name (".*?"|\S+)
+            // 读取规则头部
             if (header.matcher(line).find()) {
                 data = new Rule();
                 data.setName(line.split(split)[2].replace("\"",""));
@@ -275,16 +352,17 @@ public class HuaweiParser implements Parser {
                 serviceGroups = new HashSet<>();
                 flag = true;
             }
+            // 读取规则内容
             if (flag) {
-                // source-zone (".*?"|\S+)
+                // 源安全域
                 if (srcZone.matcher(line).find()) {
                     srcZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
                 }
-                // source-address address-set (".*?"|\S+)$
+                // 源地址集
                 else if (srcSet.matcher(line).find()) {
                     srcSetIds.add(dao.addSet(line.split(split)[2].replace("\"","")));
                 }
-                // source-address \d\S+ mask \d\S+$
+                // 源CIDR
                 else if (srcMask.matcher(line).find()) {
                     net = new Net();
                     net.setStart(line.split("\\s+")[1]);
@@ -299,7 +377,7 @@ public class HuaweiParser implements Parser {
                         countNet++;
                     }
                 }
-                // source-address range \d\S+ \d\S+$
+                // 源地址段
                 else if (srcRange.matcher(line).find()) {
                     net = new Net();
                     net.setStart(line.split("\\s+")[2]);
@@ -314,15 +392,15 @@ public class HuaweiParser implements Parser {
                         countNet++;
                     }
                 }
-                // destination-zone (".*?"|\S+)$
+                // 目标安全域
                 else if (dstZone.matcher(line).find()) {
                     dstZoneIds.add(dao.addZone(line.split(split)[1].replace("\"","")));
                 }
-                // destination-address address-set (".*?"|\S+)$
+                // 目标地址集
                 else if (dstSet.matcher(line).find()) {
                     dstSetIds.add(dao.addSet(line.split(split)[2].replace("\"","")));
                 }
-                // destination-address \d\S+ mask \d\S+$
+                // 目标CIDR
                 else if (dstMask.matcher(line).find()) {
                     net = new Net();
                     net.setStart(line.split("\\s+")[1]);
@@ -337,7 +415,7 @@ public class HuaweiParser implements Parser {
                         countNet++;
                     }
                 }
-                // destination-address \d\S+ range \d\S+$
+                // 目标地址段
                 else if (dstRange.matcher(line).find()) {
                     net = new Net();
                     net.setStart(line.split("\\s+")[2]);
@@ -352,7 +430,7 @@ public class HuaweiParser implements Parser {
                         countNet++;
                     }
                 }
-                // service (".*?"|\S+)$
+                // 服务
                 else if (serviceName.matcher(line).find()) {
                     String name = line.split(split)[1].replace("\"","");
                     // group
@@ -371,7 +449,7 @@ public class HuaweiParser implements Parser {
                         }
                     }
                 }
-                // application app (".*?"|\S+)
+                // 应用(视为服务)
                 else if (app.matcher(line).find()) {
                     Service service = new Service();
                     service.setName(line.split(split)[2].replace("\"",""));
@@ -382,7 +460,7 @@ public class HuaweiParser implements Parser {
                         countService++;
                     }
                 }
-                // service protocol \S+ destination-port \d+
+                // 新建服务
                 else if (serviceContent.matcher(line).find()) {
                     Service service = new Service();
                     String protocol = line.split("\\s+")[2];
@@ -391,7 +469,7 @@ public class HuaweiParser implements Parser {
                     service.setDstStartPort(Integer.parseInt(dstPorts[0]));
                     if (dstPorts.length > 1) {
                         service.setDstEndPort(Integer.parseInt(dstPorts[1]));
-                        // 服务命名 协议_目标端口
+                        // 服务命名:协议_目标端口
                         service.setName(protocol + "_" + dstPorts[0] + "_" + dstPorts[1]);
                     } else {
                         service.setDstEndPort(Integer.parseInt(dstPorts[0]));
@@ -404,9 +482,10 @@ public class HuaweiParser implements Parser {
                         countService++;
                     }
                 }
-                // action (".*?"|\S+)
+                // 动作(permit/deny)
                 else if (action.matcher(line).find()) {
                     flag = false;
+                    // id集合转换为字符串
                     data.setSrcSetIds(Utils.setToString(srcSetIds, Integer.class));
                     data.setSrcNetIds(Utils.setToString(srcNetIds, Integer.class));
                     data.setSrcZoneIds(Utils.setToString(srcZoneIds, Integer.class));
@@ -417,6 +496,7 @@ public class HuaweiParser implements Parser {
                     data.setServiceGroups(Utils.setToString(serviceGroups, String.class));
                     data.setAction(line.replace("action","").trim());
                     data.setId(count);
+                    // 添加到Rule表
                     if (dao.addRule(data) == count) {
                         count++;
                     }
