@@ -42,7 +42,7 @@ public class Query {
                 String startCidr = start + "/" + Integer.toString(startMask);
                 String endCidr = end + "/" + Integer.toString(endMask);
                 if (endCidr.equals(startCidr) ? Utils.isIpInCidr(ip, startCidr) : Utils.isIpInRange(ip, start, end)) {
-                    String sql2 = "SELECT `id`, `name`, `src_zone`, `dst_zone`, `src_net_id`, `src_set_id`, `service_id`, `action` " +
+                    String sql2 = "SELECT `id`, `name`, `src_zone_id`, `dst_zone_id`, `src_net_id`, `src_set_id`, `service_id`, `action` " +
                             "FROM `rule` " +
                             "WHERE `dst_net_id` = '" + id + "'" +
                             " OR `dst_net_id` LIKE '%," + id + ",%'" +
