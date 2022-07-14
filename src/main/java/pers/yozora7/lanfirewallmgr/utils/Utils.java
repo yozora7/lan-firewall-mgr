@@ -64,10 +64,7 @@ public class Utils {
         long bin1 = Long.valueOf(ipToBinary(ip1), 2);
         long bin2 = Long.valueOf(ipToBinary(ip2), 2);
         // 比较大小
-        if (bin >= bin1 && bin <= bin2) {
-            return true;
-        }
-        return false;
+        return bin >= bin1 && bin <= bin2;
     }
 
     // IP地址 (xxx.xxx.xxx.xxx) 转32位二进制串
@@ -116,7 +113,7 @@ public class Utils {
     }
 
     // 掩码 (xxx.xxx.xxx.xxx) 转2位数
-    public static String longMaskToShort (String mask) {
+    public static int longMaskToShort (String mask) {
         int result = 0;
         String[] temp = mask.split("\\.");
         for (int i = 0; i < 4; i++) {
@@ -127,11 +124,11 @@ public class Utils {
                 result += 1;
             }
         }
-        return Integer.toString(result);
+        return result;
     }
 
     // 由反掩码得到掩码
-    public static String wildcardToMask (String wildcard) {
+    public static int wildcardToMask (String wildcard) {
         // 反掩码 (xxx.xxx.xxx.xxx) 转为32位二进制串
         String binary = ipToBinary(wildcard);
         // 取反得到掩码

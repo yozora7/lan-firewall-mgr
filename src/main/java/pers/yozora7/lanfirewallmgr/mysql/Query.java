@@ -28,18 +28,20 @@ public class Query {
         int count = 0;
         int total = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM `net`", Integer.class);
         while (count + batch <= total) {
-            String sql = "SELECT `id`, `start`, `end`, `set_id` FROM `net` WHERE `id` > " + count
+            String sql = "SELECT `id`, `start`, `start_mask`, `end`, `end_mask`, `set_id` FROM `net` WHERE `id` > " + count
                     + " AND `id` <= " + (count + batch) + ";";
             count += batch;
             SqlRowSet rs = jdbcTemplate.queryForRowSet(sql);
             while (rs.next()) {
                 int id = rs.getInt(1);
                 String start = rs.getString(2);
-                String end = rs.getString(3);
-                String startIp = start.split("/")[0];
-                String endIp = end.split("/")[0];
-                int setId = rs.getInt(4);
-                if (end.equals(start) ? Utils.isIpInCidr(ip, start) : Utils.isIpInRange(ip, startIp, endIp)) {
+                int startMask = rs.getInt(3);
+                String end = rs.getString(4);
+                int endMask = rs.getInt(5);
+                int setId = rs.getInt(6);
+                String startCidr = start + "/" + Integer.toString(startMask);
+                String endCidr = end + "/" + Integer.toString(endMask);
+                if (endCidr.equals(startCidr) ? Utils.isIpInCidr(ip, startCidr) : Utils.isIpInRange(ip, start, end)) {
                     String sql2 = "SELECT `id`, `name`, `src_zone`, `dst_zone`, `src_net_id`, `src_set_id`, `service_id`, `action` " +
                             "FROM `rule` " +
                             "WHERE `dst_net_id` = '" + id + "'" +

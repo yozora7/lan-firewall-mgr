@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="pers.yozora7.lanfirewallmgr.mybatis.ServiceDao">
+    <!-- create table -->
+    <update id="createTable" parameterType="string">
+        CREATE TABLE IF NOT EXISTS ${db}.service (
+        id INT(10) NOT NULL AUTO_INCREMENT,
+        name VARCHAR(255),
+        protocol VARCHAR(20), 
+        src_start_port INT(10), 
+        src_end_port INT(10), 
+        dst_start_port INT(10), 
+        dst_end_port INT(10), 
+        group VARCHAR(255), 
+        PRIMARY KEY (id),
+        UNIQUE KEY IDX_NAME(name),
+        KEY IDX_GROUP(group)) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4;
+    </update>
+
+    <!-- select id -->
+    <select id="queryId" parameterType="map" resultType="int">
+        SELECT id FROM ${db}.service WHERE name = #{service.name} LIMIT 1;
+    </select>
+
+    <!-- count -->
+    <select id="count" parameterType="string" resultType="int">
+        SELECT COUNT(*) FROM ${db}.service;
+    </select>
+
+    <!-- insert -->
+    <update id="insert" parameterType="map" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO ${db}.service (name, protocol, src_start_port, src_end_port, dst_start_port, dst_end_port, group)
+        VALUES (#{service.name}, #{service.protocol}, #{service.srcStartPort}, #{service.srcEndPort},
+                #{service.dstStartPort}, #{service.dstEndPort}, #{service.group});
+    </update>
+
+</mapper>

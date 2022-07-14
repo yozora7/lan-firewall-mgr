@@ -17,21 +17,21 @@ public class Rule {
     // 名称
     private String name;
     // 源端安全域
-    private HashSet<Integer> srcZoneIds;
+    private String srcZoneIds;
     // 源端地址集列表 (source-address address-set ...)
-    private HashSet<Integer> srcSetIds;
+    private String srcSetIds;
     // 源端IP地址列表
-    private HashSet<Integer> srcNetIds;
+    private String srcNetIds;
     // 目标端安全域
-    private HashSet<Integer> dstZoneIds;
+    private String dstZoneIds;
     // 目标端地址集列表
-    private HashSet<Integer> dstSetIds;
+    private String dstSetIds;
     // 目标端IP地址列表
-    private HashSet<Integer> dstNetIds;
+    private String dstNetIds;
     // 服务列表
-    private HashSet<Integer> serviceIds;
+    private String serviceIds;
     // service-group
-    private HashSet<String> serviceGroups;
+    private String serviceGroups;
     // action
     private String action;
 }

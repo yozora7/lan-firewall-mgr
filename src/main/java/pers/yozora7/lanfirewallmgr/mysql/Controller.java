@@ -27,17 +27,22 @@ public class Controller {
     public String parse (@RequestParam String database ,@RequestParam String config, @RequestParam String type) throws IOException, ParserConfigurationException, SAXException {
         Dao dao = new Dao(jdbcTemplate, database);
         log.info("{}", database);
-        if (type.equals("huawei")) {
-            HuaweiParser parser = new HuaweiParser();
-            parser.parse(config, dao);
-        }
-        else if (type.equals("QMXC")) {
-            QMXCParser parser = new QMXCParser();
-            parser.parse(config, dao);
-        }
-        else if (type.equals("H3C")) {
-            H3CParser parser = new H3CParser();
-            parser.parse(config, dao);
+        switch (type) {
+            case "huawei": {
+                HuaweiParser parser = new HuaweiParser();
+                parser.parse(config, dao);
+                break;
+            }
+            case "QMXC": {
+                QMXCParser parser = new QMXCParser();
+                parser.parse(config, dao);
+                break;
+            }
+            case "H3C": {
+                H3CParser parser = new H3CParser();
+                parser.parse(config, dao);
+                break;
+            }
         }
         return "success";
     }

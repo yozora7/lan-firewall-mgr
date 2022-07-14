@@ -20,8 +20,12 @@
         <action>action (".*?"|\S+)</action>
         <src-zone>source-zone (".*?"|\S+)$</src-zone>
         <src-set>source-ip (".*?"|\S+)$</src-set>
+        <src-host>source-ip-host (".*?"|\S+)$</src-host>
+        <src-subnet>source-ip-subnet (".*?"|\S+) (".*?"|\S+)$</src-subnet>
         <dst-zone>destination-zone (".*?"|\S+)$</dst-zone>
         <dst-set>destination-ip (".*?"|\S+)$</dst-set>
+        <dst-host>destination-ip-host (".*?"|\S+)$</dst-host>
+        <dst-subnet>destination-ip-subnet (".*?"|\S+) (".*?"|\S+)$</dst-subnet>
         <service-name>service (".*?"|\S+)$</service-name>
         <user>user (".*?"|\S+)$</user>
     </rule>
